@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v2.0.5</title>
+  <title>易何画境 v2.0.6</title>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-  <link rel="stylesheet" href="/style.css?v=2.0.5" />
+  <link rel="stylesheet" href="/style.css?v=2.0.6" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -339,6 +339,10 @@
         <div class="toolbar-right">
           <input type="search" id="gallery-search" placeholder="搜索提示词..." class="search-input" />
           <div class="filter-row">
+            <button class="ghost" id="filter-starred-btn" title="查看收藏">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+              <span class="btn-label">收藏</span>
+            </button>
             <select id="gallery-filter" class="filter-select">
               <option value="">全部</option>
               <option value="starred">⭐ 已收藏</option>
@@ -477,7 +481,13 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               pearapi.ai API Key
             </span>
-            <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+            <div class="input-with-toggle">
+              <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+              <button type="button" class="toggle-visibility" data-target="api-key-input" aria-label="显示密码">
+                <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
             <p class="muted small">本地直跑：浏览器/APP 直接调 pearapi.ai，所有图片存在本机。Key 也只保存在本机。</p>
           </label>
           <div class="settings-actions">
@@ -508,13 +518,34 @@
         </div>
 
         <div class="settings-section">
+          <span class="section-title">AI 扩写</span>
+          <p class="muted small">选择 AI 扩写提示词的输出语言。</p>
+          <div class="lang-switch" role="radiogroup" aria-label="扩写语言">
+            <button type="button" class="lang-opt active" data-lang="en" role="radio" aria-checked="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="currentColor" stroke-width="2"/></svg>
+              <span>英文</span>
+            </button>
+            <button type="button" class="lang-opt" data-lang="zh" role="radio" aria-checked="false">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M7 8h10M7 12h6M7 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>中文</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <label class="field">
             <span class="field-label">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2a10 10 0 0110 10 10 10 0 01-10 10A10 10 0 012 12 10 10 0 0112 2zm0 2a8 8 0 100 16 8 8 0 000-16zm-1 3h2v4h3l-4 4-4-4h3V7z" fill="currentColor"/></svg>
               DeepSeek API Key
               <span class="mode-tag">AI 扩写</span>
             </span>
-            <input type="password" id="deepseek-key-input" placeholder="sk-..." autocomplete="off" />
+            <div class="input-with-toggle">
+              <input type="password" id="deepseek-key-input" placeholder="sk-..." autocomplete="off" />
+              <button type="button" class="toggle-visibility" data-target="deepseek-key-input" aria-label="显示密码">
+                <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
             <p class="muted small">用于 AI 智能扩写提示词。也可填写其他兼容 OpenAI 格式的 API Key。</p>
           </label>
           <div class="settings-actions">
@@ -534,7 +565,7 @@
           <span class="section-title">关于</span>
           <div class="about-card">
             <div class="about-author">金陵易何</div>
-            <div class="about-version">v2.0.5</div>
+            <div class="about-version">v2.0.6</div>
             <div class="about-desc">开源 AI 图像生成与编辑工具</div>
             <div class="about-links">
               <a href="https://github.com/Cunninger/MyImage" target="_blank" rel="noopener" class="about-link">
@@ -574,7 +605,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=2.0.5"></script>
-  <script src="/app.js?v=2.0.5"></script>
+  <script src="/storage.js?v=2.0.6"></script>
+  <script src="/app.js?v=2.0.6"></script>
 </body>
 </html>

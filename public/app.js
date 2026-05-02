@@ -1019,6 +1019,25 @@ $('#refresh-gallery').addEventListener('click', loadGallery);
 $('#gallery-search').addEventListener('input', renderGallery);
 $('#gallery-filter').addEventListener('change', renderGallery);
 
+// 收藏快捷按钮
+const filterStarredBtn = $('#filter-starred-btn');
+if (filterStarredBtn) {
+  filterStarredBtn.addEventListener('click', () => {
+    const filter = $('#gallery-filter');
+    const isStarred = filter.value === 'starred';
+    filter.value = isStarred ? '' : 'starred';
+    filterStarredBtn.classList.toggle('active', !isStarred);
+    renderGallery();
+  });
+}
+// 同步收藏按钮状态与下拉框
+function syncStarredBtnState() {
+  if (filterStarredBtn) {
+    filterStarredBtn.classList.toggle('active', $('#gallery-filter')?.value === 'starred');
+  }
+}
+$('#gallery-filter')?.addEventListener('change', syncStarredBtnState);
+
 // 图库视图切换
 let galleryViewMode = 'grid';
 const galleryEl = $('#gallery');
@@ -1197,16 +1216,54 @@ $('#import-config').addEventListener('click', async () => {
   }
 });
 
-const PROMPT_EXPERT_SYSTEM = `你是一位顶级的AI绘画提示词专家。用户会给你一段简短的描述，你需要将其扩写为一段高质量、细节丰富的英文提示词（prompt），适合用于 GPT-Image、Midjourney、DALL-E 等 AI 绘画模型。
+// 密码可见性切换
+$$('.toggle-visibility').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetId = btn.dataset.target;
+    const input = $(`#${targetId}`);
+    if (!input) return;
+    const isHidden = input.type === 'password';
+    input.type = isHidden ? 'text' : 'password';
+    btn.querySelector('.eye-open').hidden = isHidden;
+    btn.querySelector('.eye-closed').hidden = !isHidden;
+    btn.setAttribute('aria-label', isHidden ? '隐藏密码' : '显示密码');
+  });
+});
 
-规则：
-1. 输出纯英文提示词，不要任何解释、标题或额外文字
-2. 用逗号分隔各个描述元素
-3. 按以下结构组织：主体描述 → 场景/环境 → 光照/氛围 → 风格/艺术家参考 → 画质/技术参数
-4. 包含具体的视觉细节：材质、颜色、光线方向、镜头参数
-5. 添加画质提升词：masterpiece, best quality, highly detailed, 8K, professional 等
-6. 如果用户用中文描述，理解其含义并翻译成精准的英文提示词
-7. 控制在 100-200 个英文单词以内`;
+// AI 扩写语言配置
+const EXPAND_LANG_KEY = 'ai_expand_lang';
+function getExpandLang() { return localStorage.getItem(EXPAND_LANG_KEY) || 'en'; }
+function setExpandLang(lang) { localStorage.setItem(EXPAND_LANG_KEY, lang); }
+function buildExpandSystem(lang) {
+  if (lang === 'zh') {
+    return `你是一位顶级的AI绘画提示词专家。用户会给你一段简短的描述，你需要将其扩写为一段高质量、细节丰富的中文提示词（prompt），适合用于 GPT-Image、Midjourney、DALL-E 等 AI 绘画模型。\n\n规则：\n1. 输出纯中文提示词，不要任何解释、标题或额外文字\n2. 用逗号分隔各个描述元素\n3. 按以下结构组织：主体描述 → 场景/环境 → 光照/氛围 → 风格/艺术家参考 → 画质/技术参数\n4. 包含具体的视觉细节：材质、颜色、光线方向、镜头参数\n5. 添加画质提升词： masterpiece, best quality, highly detailed, 8K, professional 等（可保留英文品质词）\n6. 控制在 150-300 个汉字以内`;
+  }
+  return `你是一位顶级的AI绘画提示词专家。用户会给你一段简短的描述，你需要将其扩写为一段高质量、细节丰富的英文提示词（prompt），适合用于 GPT-Image、Midjourney、DALL-E 等 AI 绘画模型。\n\n规则：\n1. 输出纯英文提示词，不要任何解释、标题或额外文字\n2. 用逗号分隔各个描述元素\n3. 按以下结构组织：主体描述 → 场景/环境 → 光照/氛围 → 风格/艺术家参考 → 画质/技术参数\n4. 包含具体的视觉细节：材质、颜色、光线方向、镜头参数\n5. 添加画质提升词：masterpiece, best quality, highly detailed, 8K, professional 等\n6. 如果用户用中文描述，理解其含义并翻译成精准的英文提示词\n7. 控制在 100-200 个英文单词以内`;
+}
+
+// 语言切换按钮
+$$('.lang-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const lang = btn.dataset.lang;
+    setExpandLang(lang);
+    $$('.lang-opt').forEach(b => {
+      b.classList.toggle('active', b === btn);
+      b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
+    });
+    toast(`扩写语言已切换为 ${lang === 'en' ? '英文' : '中文'}`);
+  });
+});
+// 初始化语言按钮状态
+(function initLangBtn() {
+  const current = getExpandLang();
+  $$('.lang-opt').forEach(btn => {
+    const active = btn.dataset.lang === current;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  });
+})();
+
+const PROMPT_EXPERT_SYSTEM = buildExpandSystem(getExpandLang());
 
 const aiExpandBtn = $('#ai-expand-btn');
 if (aiExpandBtn) {
@@ -1229,7 +1286,7 @@ if (aiExpandBtn) {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: [
-            { role: 'system', content: PROMPT_EXPERT_SYSTEM },
+            { role: 'system', content: buildExpandSystem(getExpandLang()) },
             { role: 'user', content: text }
           ],
           max_tokens: 500,

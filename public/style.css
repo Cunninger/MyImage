@@ -480,6 +480,7 @@ main {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+  position: relative;
 }
 .chip {
   background: var(--bg-elev);
@@ -1405,6 +1406,39 @@ main {
   transform: translateY(-1px);
 }
 
+/* 密码可见性切换 */
+.input-with-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-with-toggle input[type="password"],
+.input-with-toggle input[type="text"] {
+  padding-right: 44px;
+}
+.toggle-visibility {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.toggle-visibility:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .settings-body textarea {
   resize: vertical;
   min-height: 88px;
@@ -2053,7 +2087,7 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
-  z-index: 30;
+  z-index: 100;
   animation: fadeIn 0.2s var(--ease-out);
 }
 .prompt-history-popup.hidden { display: none; }
@@ -2107,6 +2141,43 @@ main {
   box-shadow: 0 1px 2px var(--accent-glow) inset;
 }
 .theme-opt[aria-checked="true"] svg { color: var(--accent); }
+
+/* ============================================
+   语言切换开关
+   ============================================ */
+.lang-switch {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  background: var(--bg-elev);
+  padding: 4px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+.lang-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+  min-height: 40px;
+}
+.lang-opt:hover { color: var(--text); }
+.lang-opt.active {
+  background: var(--grad-soft);
+  color: var(--text);
+  box-shadow: 0 1px 2px var(--accent-glow) inset;
+}
+.lang-opt.active svg { color: var(--accent); }
 
 /* ============================================
    生成进度环（任务卡片）
