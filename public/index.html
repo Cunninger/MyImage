@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v2.0.7</title>
+  <title>易何画境 v2.0.8</title>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-  <link rel="stylesheet" href="/style.css?v=2.0.7" />
+  <link rel="stylesheet" href="/style.css?v=2.0.8" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -69,7 +69,6 @@
                 <select name="model" class="model-select" required>
                   <option value="gpt-image-2-4k">gpt-image-2-4k ✨ 4K 高清</option>
                   <option value="gpt-image-2-2k">gpt-image-2-2k 2K 标清</option>
-                  <option value="gpt-image-1">gpt-image-1</option>
                 </select>
                 <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
@@ -95,6 +94,10 @@
                 <button type="button" class="chip" data-tag="极简主义, 简洁线条, 留白">极简</button>
                 <button type="button" class="chip" data-tag="masterpiece, best quality, highly detailed, 8K">高清</button>
                 <button type="button" class="chip" data-tag="低多边形, low poly, 几何风格">Low Poly</button>
+                <button type="button" class="chip chip-random" id="random-prompt-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/><rect x="13" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/><rect x="2" y="13" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="9" height="9" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+                  随机
+                </button>
                 <button type="button" class="chip chip-accent" id="prompt-lib-btn">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                   灵感
@@ -219,7 +222,6 @@
                 <select name="model" required>
                   <option value="gpt-image-2-4k">gpt-image-2-4k ✨ 4K</option>
                   <option value="gpt-image-2-2k">gpt-image-2-2k 2K</option>
-                  <option value="gpt-image-1">gpt-image-1</option>
                 </select>
                 <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
@@ -341,6 +343,9 @@
               <option value="generate">文生图</option>
               <option value="edit">图编辑</option>
             </select>
+            <select id="gallery-tag-filter" class="filter-select">
+              <option value="">🏷 标签</option>
+            </select>
             <button class="ghost" id="refresh-gallery">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span class="btn-label">刷新</span>
@@ -398,6 +403,7 @@
     <div class="modal-frame">
       <img id="modal-img" alt="" />
       <div class="modal-meta" id="modal-info"></div>
+      <div class="modal-tags" id="modal-tags"></div>
     </div>
   </div>
 
@@ -557,7 +563,14 @@
           <span class="section-title">关于</span>
           <div class="about-card">
             <div class="about-author">金陵易何</div>
-            <div class="about-version">v2.0.7</div>
+            <div class="about-version">v2.0.8</div>
+            <div class="update-check-row">
+              <button type="button" class="ghost small" id="check-update-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                检查更新
+              </button>
+              <span class="update-status" id="update-status"></span>
+            </div>
             <div class="about-desc">开源 AI 图像生成与编辑工具</div>
             <div class="about-links">
               <a href="https://github.com/Cunninger/MyImage" target="_blank" rel="noopener" class="about-link">
@@ -597,7 +610,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=2.0.7"></script>
-  <script src="/app.js?v=2.0.7"></script>
+  <script src="/storage.js?v=2.0.8"></script>
+  <script src="/app.js?v=2.0.8"></script>
 </body>
 </html>

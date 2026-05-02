@@ -1,7 +1,7 @@
 /* IndexedDB 存储层 — 所有图片和元数据都存在手机本地 */
 
 const DB_NAME = 'gpt-image-store';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = 'images';
 
 let dbPromise;
@@ -31,6 +31,18 @@ function openDB() {
           if (!c) return;
           if (c.value.starred === undefined) {
             c.value.starred = 0;
+            c.update(c.value);
+          }
+          c.continue();
+        };
+      }
+      if (oldV < 3) {
+        // 现有记录补默认 tags 数组
+        store.openCursor().onsuccess = (ev) => {
+          const c = ev.target.result;
+          if (!c) return;
+          if (!Array.isArray(c.value.tags)) {
+            c.value.tags = [];
             c.update(c.value);
           }
           c.continue();
@@ -111,6 +123,22 @@ const Storage = {
         const item = g.result;
         if (!item) return resolve(false);
         item.starred = starred ? 1 : 0;
+        const p = store.put(item);
+        p.onsuccess = () => resolve(true);
+        p.onerror = () => reject(p.error);
+      };
+      g.onerror = () => reject(g.error);
+    });
+  },
+
+  async setTags(id, tags) {
+    const store = await tx('readwrite');
+    return new Promise((resolve, reject) => {
+      const g = store.get(id);
+      g.onsuccess = () => {
+        const item = g.result;
+        if (!item) return resolve(false);
+        item.tags = Array.isArray(tags) ? tags : [];
         const p = store.put(item);
         p.onsuccess = () => resolve(true);
         p.onerror = () => reject(p.error);

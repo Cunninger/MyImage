@@ -83,6 +83,7 @@ function savePromptHistory(text, model) {
 
 // 主题管理：auto / light / dark，localStorage 持久化，跟随系统偏好
 const THEME_KEY = 'theme_mode';
+const MODEL_PREF_KEY = 'preferred_model';
 const themeMq = window.matchMedia('(prefers-color-scheme: light)');
 function getThemeMode() { return localStorage.getItem(THEME_KEY) || 'auto'; }
 function applyTheme(mode) {
@@ -146,7 +147,7 @@ const Client = {
   },
 
   // ============ 生成 / 编辑 ============
-  async generateOrEdit({ type, model, prompt, aspectRatio, n, refFiles, refUrls }) {
+  async generateOrEdit({ type, model, prompt, aspectRatio, n, refFiles, refUrls, signal }) {
     const refs = [];
     for (const f of refFiles || []) {
       if (f instanceof File && f.size > 0) {
@@ -169,6 +170,7 @@ const Client = {
         'Authorization': `Bearer ${this.getKey()}`,
       },
       body: JSON.stringify(body),
+      signal,
     });
 
     let data;
@@ -202,6 +204,7 @@ const Client = {
         prompt, model, type,
         aspect_ratio: aspectRatio || '',
         createdAt: Date.now(),
+        tags: [],
       };
       await Storage.save(record);
       items.push(record);
@@ -563,6 +566,7 @@ function buildCard(item, container, prepend = true) {
           ${item.aspect_ratio ? `<span class="card-meta-tag">${item.aspect_ratio}</span>` : ''}
           <span>${formatTime(item.createdAt)}</span>
         </div>
+        ${(item.tags || []).length ? `<div class="card-tags">${item.tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         <div class="card-actions">
           <button class="action-regen" title="重新生成"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button class="action-toedit" title="以此图编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -753,7 +757,68 @@ function openModal(item) {
     <strong>${escapeHtml(item.prompt || '(无提示词)')}</strong>
     <span>模型: ${item.model || '-'} · 比例: ${item.aspect_ratio || '默认'} · ${new Date(item.createdAt).toLocaleString('zh-CN')}</span>
   `;
+  renderModalTags(item);
   $('#modal').classList.remove('hidden');
+}
+
+function renderModalTags(item) {
+  const container = $('#modal-tags');
+  if (!container) return;
+  const tags = item.tags || [];
+  const allTags = getAllTags();
+  const suggestions = allTags.filter(t => !tags.includes(t));
+  container.innerHTML = `
+    <div class="modal-tags-list">${tags.map(t => `<span class="tag-pill editable" data-tag="${escapeHtml(t)}">${escapeHtml(t)} <button class="tag-remove">×</button></span>`).join('') || '<span class="muted small">暂无标签</span>'}</div>
+    <div class="modal-tags-input-row">
+      <input type="text" class="tag-input" id="tag-input" placeholder="输入标签回车添加" maxlength="20" />
+      ${suggestions.length ? `<select class="tag-suggest" id="tag-suggest"><option value="">快速选择...</option>${suggestions.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}</select>` : ''}
+    </div>
+  `;
+  container.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', () => removeTagFromItem(item, btn.parentElement.dataset.tag));
+  });
+  const input = container.querySelector('#tag-input');
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const v = input.value.trim();
+        if (v) addTagToItem(item, v);
+      }
+    });
+  }
+  const suggest = container.querySelector('#tag-suggest');
+  if (suggest) {
+    suggest.addEventListener('change', () => {
+      if (suggest.value) addTagToItem(item, suggest.value);
+    });
+  }
+}
+
+async function addTagToItem(item, tag) {
+  const tags = new Set(item.tags || []);
+  if (tags.has(tag)) return;
+  tags.add(tag);
+  item.tags = Array.from(tags);
+  try {
+    await Storage.setTags(item.id, item.tags);
+    const idx = galleryData.findIndex(x => x.id === item.id);
+    if (idx >= 0) galleryData[idx].tags = item.tags;
+    renderModalTags(item);
+    renderTagFilter();
+    renderGallery();
+  } catch (err) { toast('添加标签失败', 'error'); }
+}
+
+async function removeTagFromItem(item, tag) {
+  item.tags = (item.tags || []).filter(t => t !== tag);
+  try {
+    await Storage.setTags(item.id, item.tags);
+    const idx = galleryData.findIndex(x => x.id === item.id);
+    if (idx >= 0) galleryData[idx].tags = item.tags;
+    renderModalTags(item);
+    renderTagFilter();
+    renderGallery();
+  } catch (err) { toast('移除标签失败', 'error'); }
 }
 $('#modal-close').addEventListener('click', closeModal);
 $('.modal-bg').addEventListener('click', closeModal);
@@ -763,21 +828,25 @@ $('#modal-download').addEventListener('click', () => {
 function closeModal() { $('#modal').classList.add('hidden'); }
 
 // =======================
-// 任务管理
+// 任务管理（含队列调度）
 // =======================
+const MAX_CONCURRENT = 2;
 let activeTaskCount = 0;
 let taskSeq = 0;
+let taskQueue = [];      // { id, type, opts, container, cards, progressors, abortCtrl, status, taskId }
+let runningTasks = 0;
 
 function updateTaskCounter() {
   const el = $('#task-counter');
   const c = $('#task-count');
-  if (activeTaskCount > 0) {
+  const pending = taskQueue.filter(t => t.status === 'pending').length;
+  if (activeTaskCount > 0 || pending > 0) {
     el.classList.remove('hidden');
-    c.textContent = activeTaskCount;
+    c.textContent = `${activeTaskCount}运行${pending ? ' / ' + pending + '排队' : ''}`;
   } else el.classList.add('hidden');
 }
 
-function createTaskCard(prompt) {
+function createTaskCard(prompt, statusText = '生成中...') {
   const card = document.createElement('div');
   card.className = 'task-card';
   card.innerHTML = `
@@ -795,7 +864,7 @@ function createTaskCard(prompt) {
       </svg>
       <span class="ring-pct">0%</span>
     </div>
-    <div class="task-status-text">生成中...</div>
+    <div class="task-status-text">${escapeHtml(statusText)}</div>
     <div class="task-elapsed">0s</div>
     <div class="task-prompt">${escapeHtml((prompt || '(无提示词)').slice(0, 200))}</div>
   `;
@@ -843,49 +912,92 @@ function setTaskCardError(card, msg) {
   card.querySelector('.task-prompt').textContent = msg;
 }
 
-async function runTask({ type, opts, container }) {
-  if (!Client.hasUserKey) {
-    toast('请先在右上角设置 → 填入 API Key', 'error');
-    openSettings();
-    return;
-  }
-
-  clearEmptyState(container);
-
-  savePromptHistory(opts.prompt || '', opts.model || '');
-
+function enqueueTask({ type, opts, container }) {
+  const taskId = ++taskSeq;
   const cards = [];
   const progressors = [];
-  for (let i = 0; i < (opts.n || 1); i++) {
-    const c = createTaskCard(opts.prompt);
+  const n = opts.n || 1;
+  const isPending = runningTasks >= MAX_CONCURRENT;
+
+  for (let i = 0; i < n; i++) {
+    const c = createTaskCard(opts.prompt, isPending ? `排队中 #${taskId}` : '生成中...');
+    if (isPending) c.classList.add('pending');
     container.prepend(c);
     cards.push(c);
     progressors.push(startTaskProgress(c));
   }
 
-  activeTaskCount += (opts.n || 1);
-  updateTaskCounter();
-  const taskId = ++taskSeq;
-  toast(`已开始生成 ${opts.n || 1} 张，可继续操作 ✨`, 'info');
+  const abortCtrl = new AbortController();
+  const task = { id: taskId, type, opts, container, cards, progressors, abortCtrl, status: isPending ? 'pending' : 'running', taskId };
 
-  // 后台保活：显示前台通知
-  if (isNative && window.Capacitor?.Plugins?.BackgroundGen) {
-    try { await window.Capacitor.Plugins.BackgroundGen.startForeground(); } catch(e) {}
-  }
-
-  cards.forEach((c, idx) => {
+  // 绑定取消按钮
+  cards.forEach(c => {
     c.querySelector('.task-cancel').addEventListener('click', () => {
-      // 简单实现：移除卡片（请求继续，但用户不再看到）
+      const idx = taskQueue.findIndex(t => t.id === task.id);
+      if (idx >= 0) {
+        const t = taskQueue[idx];
+        if (t.status === 'pending') {
+          taskQueue.splice(idx, 1);
+          t.progressors.forEach(p => p.cancel());
+          t.cards.forEach(x => x.remove());
+          updateTaskCounter();
+          toast(`#${t.taskId} 已取消`);
+          return;
+        }
+      }
+      abortCtrl.abort();
       progressors.forEach(p => p.cancel());
       cards.forEach(x => x.remove());
+      activeTaskCount -= n;
+      updateTaskCounter();
     });
   });
 
+  activeTaskCount += n;
+  updateTaskCounter();
+
+  if (isPending) {
+    taskQueue.push(task);
+    toast(`#${taskId} 已加入队列，前面还有 ${taskQueue.filter(t => t.status === 'pending').length - 1} 个任务`);
+  } else {
+    taskQueue.push(task);
+    toast(`已开始生成 ${n} 张，可继续操作 ✨`, 'info');
+    processQueue();
+  }
+
+  // 后台保活
+  if (isNative && window.Capacitor?.Plugins?.BackgroundGen) {
+    try { window.Capacitor.Plugins.BackgroundGen.startForeground(); } catch(e) {}
+  }
+}
+
+async function processQueue() {
+  while (runningTasks < MAX_CONCURRENT) {
+    const next = taskQueue.find(t => t.status === 'pending');
+    if (!next) break;
+    next.status = 'running';
+    next.cards.forEach(c => {
+      c.classList.remove('pending');
+      c.querySelector('.task-status-text').textContent = '生成中...';
+    });
+    runningTasks++;
+    updateTaskCounter();
+    executeTask(next).then(() => {
+      runningTasks--;
+      processQueue();
+    });
+  }
+}
+
+async function executeTask(task) {
+  const { type, opts, container, cards, progressors, abortCtrl, taskId } = task;
+  const n = opts.n || 1;
+
   try {
-    const items = await Client.generateOrEdit({ type, ...opts });
+    const items = await Client.generateOrEdit({ type, ...opts, signal: abortCtrl.signal });
+    if (abortCtrl.signal.aborted) return;
     if (!items?.length) throw new Error('未返回图片');
     progressors.forEach(p => p.finish());
-    // 让 100% 显示一刻再切换到结果卡
     await new Promise(r => setTimeout(r, 250));
     cards.forEach(c => c.remove());
     items.forEach(it => buildCard(it, container));
@@ -893,6 +1005,10 @@ async function runTask({ type, opts, container }) {
     playDoneSound();
     updateGalleryBadge();
   } catch (err) {
+    if (abortCtrl.signal.aborted) {
+      cards.forEach(c => c.remove());
+      return;
+    }
     progressors.forEach(p => p.cancel());
     cards.forEach(c => {
       setTaskCardError(c, err.message);
@@ -904,13 +1020,26 @@ async function runTask({ type, opts, container }) {
     }
     toast(`#${taskId} 失败：${msg}`, 'error');
   } finally {
-    activeTaskCount -= (opts.n || 1);
+    activeTaskCount -= n;
     updateTaskCounter();
-    // 后台保活：所有任务完成后取消通知
+    const idx = taskQueue.findIndex(t => t.id === task.id);
+    if (idx >= 0) taskQueue.splice(idx, 1);
     if (activeTaskCount <= 0 && isNative && window.Capacitor?.Plugins?.BackgroundGen) {
       try { await window.Capacitor.Plugins.BackgroundGen.stopForeground(); } catch(e) {}
     }
   }
+}
+
+async function runTask({ type, opts, container }) {
+  if (!Client.hasUserKey) {
+    toast('请先在右上角设置 → 填入 API Key', 'error');
+    openSettings();
+    return;
+  }
+  clearEmptyState(container);
+  savePromptHistory(opts.prompt || '', opts.model || '');
+  if (opts.model) localStorage.setItem(MODEL_PREF_KEY, opts.model);
+  enqueueTask({ type, opts, container });
 }
 
 // =======================
@@ -982,18 +1111,37 @@ async function loadGallery() {
   ).join('');
   galleryData = await Client.listGallery();
   renderGallery();
+  renderTagFilter();
   $('#gallery-count').textContent = galleryData.length ? `共 ${galleryData.length} 张` : '';
   updateGalleryBadge();
+}
+
+function getAllTags() {
+  const tags = new Set();
+  galleryData.forEach(item => (item.tags || []).forEach(t => tags.add(t)));
+  return Array.from(tags).sort();
+}
+
+function renderTagFilter() {
+  const sel = $('#gallery-tag-filter');
+  if (!sel) return;
+  const current = sel.value;
+  const allTags = getAllTags();
+  sel.innerHTML = '<option value="">🏷 标签</option>' +
+    allTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  if (allTags.includes(current)) sel.value = current;
 }
 
 function renderGallery() {
   const search = ($('#gallery-search').value || '').toLowerCase();
   const filter = $('#gallery-filter').value;
+  const tagFilter = $('#gallery-tag-filter')?.value;
   const container = $('#gallery');
 
   let list = galleryData;
   if (filter === 'starred') list = list.filter(x => x.starred);
   else if (filter) list = list.filter(x => x.type === filter);
+  if (tagFilter) list = list.filter(x => (x.tags || []).includes(tagFilter));
   if (search) list = list.filter(x => (x.prompt || '').toLowerCase().includes(search));
 
   container.innerHTML = '';
@@ -1018,6 +1166,7 @@ function renderGallery() {
 $('#refresh-gallery').addEventListener('click', loadGallery);
 $('#gallery-search').addEventListener('input', renderGallery);
 $('#gallery-filter').addEventListener('change', renderGallery);
+$('#gallery-tag-filter')?.addEventListener('change', renderGallery);
 
 // 收藏快捷按钮
 const filterStarredBtn = $('#filter-starred-btn');
@@ -1335,6 +1484,12 @@ document.addEventListener('keydown', e => {
 // =======================
 (async () => {
   updateStatusUI();
+  const savedModel = localStorage.getItem(MODEL_PREF_KEY);
+  if (savedModel) {
+    $$('select[name="model"]').forEach(sel => {
+      if ([...sel.options].some(o => o.value === savedModel)) sel.value = savedModel;
+    });
+  }
   if (!Client.hasUserKey) {
     setTimeout(() => openSettings(), 500);
   }
@@ -1450,9 +1605,41 @@ document.addEventListener('click', e => {
 })();
 
 // =======================
+// 随机提示词
+// =======================
+(async function initRandomPrompt() {
+  let promptData = null;
+  try {
+    const res = await fetch('prompts.json');
+    promptData = await res.json();
+  } catch (e) { console.warn('提示词库加载失败', e); }
+
+  function generateRandomPrompt() {
+    if (!promptData || !promptData.prompts.length) return '';
+    const count = 1 + Math.floor(Math.random() * 2);
+    const shuffled = [...promptData.prompts].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, count);
+    const styleTags = ['电影感', '赛博朋克', '水彩', '日漫', '油画', '3D渲染', '像素风', '吉卜力', '水墨', '极简', '高清'];
+    const tagCount = 1 + Math.floor(Math.random() * 2);
+    const selectedTags = [...styleTags].sort(() => 0.5 - Math.random()).slice(0, tagCount);
+    return selected.map(p => p.text).join('，') + '，' + selectedTags.join('，');
+  }
+
+  $('#random-prompt-btn')?.addEventListener('click', () => {
+    const ta = $('.panel.active textarea[name="prompt"]');
+    if (!ta) return;
+    const text = generateRandomPrompt();
+    if (!text) return toast('灵感库加载失败', 'error');
+    ta.value = text;
+    ta.dispatchEvent(new Event('input'));
+    toast('已生成随机提示词');
+  });
+})();
+
+// =======================
 // 版本更新检查
 // =======================
-const APP_VERSION = '2.0.7';
+const APP_VERSION = '2.0.8';
 const UPDATE_CHECK_KEY = 'last_update_check';
 const UPDATE_DISMISS_KEY = 'dismissed_update_version';
 
@@ -1470,25 +1657,41 @@ function isNewer(remote, local) {
   return false;
 }
 
-async function checkUpdate() {
+async function checkUpdate(force = false) {
   try {
-    const lastCheck = parseInt(localStorage.getItem(UPDATE_CHECK_KEY) || '0', 10);
-    const now = Date.now();
-    // 24 小时内只检查一次
-    if (now - lastCheck < 24 * 60 * 60 * 1000) return;
-    localStorage.setItem(UPDATE_CHECK_KEY, String(now));
+    if (!force) {
+      const lastCheck = parseInt(localStorage.getItem(UPDATE_CHECK_KEY) || '0', 10);
+      const now = Date.now();
+      if (now - lastCheck < 24 * 60 * 60 * 1000) return 'cached';
+    }
+    localStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
 
     const res = await fetch('https://api.github.com/repos/Cunninger/MyImage/releases/latest', { cache: 'no-store' });
-    if (!res.ok) return;
+    if (!res.ok) return 'error';
     const data = await res.json();
     const latest = data.tag_name || '';
-    if (!latest || !isNewer(latest, APP_VERSION)) return;
+    const url = data.html_url || 'https://github.com/Cunninger/MyImage/releases';
+
+    if (!latest || !isNewer(latest, APP_VERSION)) {
+      updateAboutStatus(`✅ 当前已是最新版本 v${APP_VERSION}`);
+      return 'latest';
+    }
 
     const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY);
-    if (dismissed === latest) return;
+    if (dismissed !== latest) {
+      showUpdateBanner(latest, url);
+    }
+    updateAboutStatus(`🎉 发现新版本 ${latest}，<a href="${url}" target="_blank" rel="noopener">去下载</a>`);
+    return 'new';
+  } catch (e) {
+    updateAboutStatus('检查失败，请稍后重试');
+    return 'error';
+  }
+}
 
-    showUpdateBanner(latest, data.html_url || 'https://github.com/Cunninger/MyImage/releases');
-  } catch (e) { /* 静默失败 */ }
+function updateAboutStatus(html) {
+  const el = $('#update-status');
+  if (el) el.innerHTML = html;
 }
 
 function showUpdateBanner(version, url) {
@@ -1510,5 +1713,10 @@ function showUpdateBanner(version, url) {
   });
 }
 
+$('#check-update-btn')?.addEventListener('click', async () => {
+  updateAboutStatus('检查中...');
+  await checkUpdate(true);
+});
+
 // 启动时检查更新（延迟 3 秒，避免阻塞首屏）
-setTimeout(checkUpdate, 3000);
+setTimeout(() => checkUpdate(false), 3000);
