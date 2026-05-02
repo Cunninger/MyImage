@@ -2366,9 +2366,31 @@ main {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  .card-meta { display: none; }
+  .card-meta {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 10px;
+  }
+  .card-meta-tag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
   .card-actions {
-    display: none !important;
+    display: flex !important;
+    gap: 4px;
+    margin-top: 6px;
+    pointer-events: auto;
+  }
+  .card-actions button {
+    flex: 1;
+    min-height: 32px;
+    padding: 0;
+    gap: 2px;
+  }
+  .card-actions button svg {
+    width: 12px;
+    height: 12px;
   }
   .card:hover .card-overlay,
   .card.overlay-active .card-overlay {
