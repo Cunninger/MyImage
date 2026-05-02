@@ -109,6 +109,13 @@
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                   AI扩写
                 </button>
+                <button type="button" class="chip" id="prompt-history-btn" style="position:relative">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  历史
+                </button>
+                <div id="prompt-history-popup" class="prompt-history-popup hidden">
+                  <div id="prompt-history-list"></div>
+                </div>
               </div>
             </label>
           </div>
@@ -343,17 +350,6 @@
       <div class="gallery" id="gallery"></div>
     </section>
   </main>
-
-  <!-- Loading 覆盖层 -->
-  <div id="loading" class="loading hidden" aria-hidden="true">
-    <div class="loading-card">
-      <div class="loading-spinner">
-        <div class="loader-orb"></div>
-      </div>
-      <p id="loading-text">正在生成图片...</p>
-      <span class="muted small">通常需要 5-30 秒</span>
-    </div>
-  </div>
 
   <!-- Lightbox -->
   <div id="modal" class="modal hidden" aria-hidden="true">

@@ -1043,54 +1043,8 @@ main {
 }
 
 /* ============================================
-   Loading 覆盖层
+   动画关键帧
    ============================================ */
-.loading {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s var(--ease-out);
-}
-.loading.hidden { display: none; }
-
-.loading-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: var(--r-xl);
-  padding: var(--s-8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--s-4);
-  box-shadow: var(--shadow-lg);
-  text-align: center;
-}
-
-.loading-spinner {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.loader-orb {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--grad);
-  filter: blur(0.5px);
-  animation: morph 2s infinite ease-in-out, spin 4s infinite linear;
-  box-shadow: 0 0 40px var(--accent-glow);
-}
-
 @keyframes morph {
   0%, 100% { border-radius: 50% 50% 50% 50%; }
   25% { border-radius: 60% 40% 50% 50%; }
@@ -1100,8 +1054,6 @@ main {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-.loading-card p { font-size: 14px; font-weight: 500; }
 
 /* ============================================
    Modal / Lightbox
@@ -1783,4 +1735,100 @@ main {
 .gallery-view-btn.active {
   background: var(--grad-soft);
   color: var(--accent);
+}
+
+/* ============================================
+   自定义确认对话框
+   ============================================ */
+.confirm-frame {
+  position: relative;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  width: 100%;
+  max-width: 360px;
+  padding: var(--s-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  animation: zoomIn 0.25s var(--ease-spring);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.confirm-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.confirm-msg {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.confirm-actions {
+  display: flex;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+.confirm-cancel {
+  flex: 1;
+  padding: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.confirm-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+.confirm-ok {
+  flex: 1;
+  padding: 10px;
+  background: var(--grad);
+  border: none;
+  border-radius: var(--r-md);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.confirm-ok:hover { opacity: 0.9; }
+.confirm-ok.danger {
+  background: var(--error);
+}
+
+/* ============================================
+   提示词历史弹窗
+   ============================================ */
+.prompt-history-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 30;
+  animation: fadeIn 0.2s var(--ease-out);
+}
+.prompt-history-popup.hidden { display: none; }
+.prompt-history-popup .prompt-card {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+}
+.prompt-history-popup .prompt-card:last-child { border-bottom: none; }
+
+/* ============================================
+   移动端 kbd 隐藏
+   ============================================ */
+@media (max-width: 700px) {
+  .primary kbd { display: none; }
 }

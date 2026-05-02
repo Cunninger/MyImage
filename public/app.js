@@ -70,6 +70,41 @@ const FS = isNative ? Capacitor.Plugins.Filesystem : null;
 const SharePlugin = isNative ? Capacitor.Plugins.Share : null;
 const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
+// 提示词历史记录
+const PROMPT_HISTORY_KEY = 'prompt_history';
+const PROMPT_HISTORY_MAX = 30;
+function getPromptHistory() { try { return JSON.parse(localStorage.getItem(PROMPT_HISTORY_KEY) || '[]'); } catch { return []; } }
+function savePromptHistory(text, model) {
+  if (!text.trim()) return;
+  const history = getPromptHistory().filter(h => h.text !== text);
+  history.unshift({ text, model, time: Date.now() });
+  localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(history.slice(0, PROMPT_HISTORY_MAX)));
+}
+
+// 自定义确认对话框
+function confirmDialog(msg, { title = '确认', confirmText = '确定', danger = false } = {}) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.className = 'modal';
+    el.innerHTML = `
+      <div class="modal-bg"></div>
+      <div class="confirm-frame">
+        <div class="confirm-title">${escapeHtml(title)}</div>
+        <div class="confirm-msg">${escapeHtml(msg)}</div>
+        <div class="confirm-actions">
+          <button class="confirm-cancel">取消</button>
+          <button class="confirm-ok${danger ? ' danger' : ''}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+    const close = (val) => { el.remove(); resolve(val); };
+    el.querySelector('.modal-bg').addEventListener('click', () => close(false));
+    el.querySelector('.confirm-cancel').addEventListener('click', () => close(false));
+    el.querySelector('.confirm-ok').addEventListener('click', () => close(true));
+    document.body.appendChild(el);
+  });
+}
+
 function genId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -303,6 +338,10 @@ class FileBucket {
 
   add(files) {
     for (const f of files) {
+      if (f.size > 25 * 1024 * 1024) {
+        toast(`${f.name} 超过 25MB 限制`, 'error');
+        continue;
+      }
       if (this.files.length >= this.max) {
         toast(`最多 ${this.max} 张图片`, 'error');
         break;
@@ -360,8 +399,9 @@ function buildCard(item, container, prepend = true) {
           <span>${formatTime(item.createdAt)}</span>
         </div>
         <div class="card-actions">
+          <button class="action-regen" title="重新生成"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="action-toedit" title="以此图编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button class="action-download" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button class="action-copy" title="复制链接"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2"/></svg></button>
           <button class="action-prompt" title="复制提示词"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6" stroke="currentColor" stroke-width="2"/></svg></button>
           <button class="action-delete danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
@@ -387,15 +427,26 @@ function buildCard(item, container, prepend = true) {
     lastTapTime = now;
   });
   card.querySelector('.action-download').addEventListener('click', e => { e.stopPropagation(); downloadImage(item); });
-  card.querySelector('.action-copy').addEventListener('click', e => {
+  card.querySelector('.action-regen').addEventListener('click', e => {
     e.stopPropagation();
-    if (item.path) navigator.clipboard.writeText(location.origin + item.path);
-    else if (item.remoteUrl) navigator.clipboard.writeText(item.remoteUrl);
-    else if (item.blob) {
-      const u = URL.createObjectURL(item.blob);
-      navigator.clipboard.writeText(u);
-    }
-    toast('链接已复制');
+    runTask({
+      type: item.type || 'generate',
+      opts: { prompt: item.prompt || '', model: item.model || 'gpt-image-2-4k', aspectRatio: item.aspect_ratio || '', n: 1, refFiles: [], refUrls: [] },
+      container: $('#results-generate'),
+    });
+    toast('已重新生成', 'info');
+  });
+  card.querySelector('.action-toedit').addEventListener('click', async e => {
+    e.stopPropagation();
+    let blob = item.blob;
+    if (!blob && item.remoteUrl) { try { const r = await fetch(item.remoteUrl); blob = await r.blob(); } catch {} }
+    if (!blob) return toast('无法获取图片', 'error');
+    const file = new File([blob], 'reference.png', { type: blob.type || 'image/png' });
+    editFiles.add([file]);
+    $$('.tab')[1]?.click();
+    const editPrompt = $('#form-edit textarea[name="prompt"]');
+    if (editPrompt && item.prompt) editPrompt.value = item.prompt;
+    toast('已切换到图生图');
   });
   card.querySelector('.action-prompt').addEventListener('click', e => {
     e.stopPropagation();
@@ -405,7 +456,7 @@ function buildCard(item, container, prepend = true) {
   });
   card.querySelector('.action-delete').addEventListener('click', async e => {
     e.stopPropagation();
-    if (!confirm('确定删除这张图片吗？')) return;
+    if (!await confirmDialog('确定删除这张图片吗？', { danger: true })) return;
     const ok = await Client.deleteItem(item);
     if (ok || ok === undefined) {
       card.style.transition = 'all 0.25s';
@@ -565,6 +616,8 @@ async function runTask({ type, opts, container }) {
 
   clearEmptyState(container);
 
+  savePromptHistory(opts.prompt || '', opts.model || '');
+
   const cards = [];
   for (let i = 0; i < (opts.n || 1); i++) {
     const c = createTaskCard(opts.prompt);
@@ -634,6 +687,10 @@ function readForm(form, bucket) {
 
 $('#form-generate').addEventListener('submit', e => {
   e.preventDefault();
+  const btn = e.target.querySelector('.submit-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; }, 2000);
   const opts = readForm(e.target, generateFiles);
   runTask({
     type: 'generate',
@@ -644,6 +701,10 @@ $('#form-generate').addEventListener('submit', e => {
 
 $('#form-edit').addEventListener('submit', e => {
   e.preventDefault();
+  const btn = e.target.querySelector('.submit-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; }, 2000);
   const opts = readForm(e.target, editFiles);
   if (opts.refFiles.length === 0 && opts.refUrls.length === 0) {
     toast('请上传或填入至少一张参考图', 'error');
@@ -657,12 +718,12 @@ $('#form-edit').addEventListener('submit', e => {
 });
 
 // 清空结果
-$('#clear-generate').addEventListener('click', () => {
-  if (!confirm('清空结果区？（不会删除已保存图片）')) return;
+$('#clear-generate').addEventListener('click', async () => {
+  if (!await confirmDialog('清空结果区？（不会删除已保存图片）')) return;
   $('#results-generate').innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div><p>等待你的第一个创意 ✨</p><p class="muted">在左侧输入提示词，点击生成</p></div>`;
 });
-$('#clear-edit').addEventListener('click', () => {
-  if (!confirm('清空结果区？（不会删除已保存图片）')) return;
+$('#clear-edit').addEventListener('click', async () => {
+  if (!await confirmDialog('清空结果区？（不会删除已保存图片）')) return;
   $('#results-edit').innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>上传图片，告诉 AI 你想怎么改</p></div>`;
 });
 
@@ -672,6 +733,10 @@ $('#clear-edit').addEventListener('click', () => {
 let galleryData = [];
 
 async function loadGallery() {
+  const container = $('#gallery');
+  container.innerHTML = Array.from({ length: 8 }, () =>
+    '<div class="skeleton" style="aspect-ratio:1"></div>'
+  ).join('');
   galleryData = await Client.listGallery();
   renderGallery();
   $('#gallery-count').textContent = galleryData.length ? `共 ${galleryData.length} 张` : '';
@@ -760,7 +825,7 @@ $('#clear-key').addEventListener('click', async () => {
 });
 
 $('#clear-history').addEventListener('click', async () => {
-  if (!confirm('删除手机本地存储的全部图片？此操作不可恢复。')) return;
+  if (!await confirmDialog('删除手机本地存储的全部图片？此操作不可恢复。', { title: '清空图库', confirmText: '全部删除', danger: true })) return;
   await Storage.clear();
   toast('本地图库已清空');
   refreshStorageInfo();
@@ -964,6 +1029,41 @@ document.addEventListener('keydown', e => {
   }
   updateGalleryBadge();
 })();
+
+// 提示词历史按钮
+$('#prompt-history-btn')?.addEventListener('click', () => {
+  const history = getPromptHistory();
+  const popup = $('#prompt-history-popup');
+  const list = $('#prompt-history-list');
+  if (!popup || !list) return;
+  if (popup.classList.contains('hidden')) {
+    list.innerHTML = history.length === 0
+      ? '<div class="prompt-empty">暂无历史记录</div>'
+      : history.slice(0, 15).map(h => `
+        <div class="prompt-card" data-text="${escapeHtml(h.text)}">
+          <div class="prompt-card-body">
+            <div class="prompt-card-text">${escapeHtml(h.text.slice(0, 100))}</div>
+          </div>
+        </div>
+      `).join('');
+    list.querySelectorAll('.prompt-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const ta = $('.panel.active textarea[name="prompt"]');
+        if (ta) { ta.value = card.dataset.text; ta.dispatchEvent(new Event('input')); ta.focus(); }
+        popup.classList.add('hidden');
+      });
+    });
+    popup.classList.remove('hidden');
+  } else {
+    popup.classList.add('hidden');
+  }
+});
+document.addEventListener('click', e => {
+  const popup = $('#prompt-history-popup');
+  if (popup && !popup.contains(e.target) && !e.target.closest('#prompt-history-btn')) {
+    popup.classList.add('hidden');
+  }
+});
 
 // =======================
 // 提示词灵感库
