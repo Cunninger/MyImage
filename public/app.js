@@ -566,6 +566,11 @@ async function runTask({ type, opts, container }) {
   const taskId = ++taskSeq;
   toast(`已开始生成 ${opts.n || 1} 张，可继续操作 ✨`, 'info');
 
+  // 后台保活：显示前台通知
+  if (isNative && window.Capacitor?.Plugins?.BackgroundGen) {
+    try { await window.Capacitor.Plugins.BackgroundGen.startForeground(); } catch(e) {}
+  }
+
   cards.forEach(c => {
     c.querySelector('.task-cancel').addEventListener('click', () => {
       // 简单实现：移除卡片（请求继续，但用户不再看到）
@@ -593,6 +598,10 @@ async function runTask({ type, opts, container }) {
   } finally {
     activeTaskCount -= (opts.n || 1);
     updateTaskCounter();
+    // 后台保活：所有任务完成后取消通知
+    if (activeTaskCount <= 0 && isNative && window.Capacitor?.Plugins?.BackgroundGen) {
+      try { await window.Capacitor.Plugins.BackgroundGen.stopForeground(); } catch(e) {}
+    }
   }
 }
 
