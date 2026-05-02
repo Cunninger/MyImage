@@ -4,11 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v1.8.2</title>
-  <link rel="manifest" href="/manifest.json" />
+  <title>易何画境 v2.0</title>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <link rel="stylesheet" href="/style.css?v=1.8.2" />
+  <link rel="stylesheet" href="/style.css?v=2.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -26,7 +24,7 @@
       </div>
     </div>
 
-    <nav class="tabs" role="tablist">
+    <nav class="tabs desktop-tabs" role="tablist">
       <button class="tab active" data-tab="generate" role="tab">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         文生图
@@ -188,6 +186,12 @@
       </aside>
 
       <div class="canvas">
+        <div class="float-bar mobile-only">
+          <input type="text" class="float-input" id="float-input-generate" placeholder="描述你想生成的图片..." autocomplete="off" />
+          <button class="float-send" type="button" data-target="form-generate">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
         <div class="canvas-header">
           <h2>结果</h2>
           <button class="ghost small" id="clear-generate">清空</button>
@@ -302,6 +306,12 @@
       </aside>
 
       <div class="canvas">
+        <div class="float-bar mobile-only">
+          <input type="text" class="float-input" id="float-input-edit" placeholder="描述编辑指令..." autocomplete="off" />
+          <button class="float-send" type="button" data-target="form-edit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
         <div class="canvas-header">
           <h2>结果</h2>
           <button class="ghost small" id="clear-edit">清空</button>
@@ -353,6 +363,32 @@
       <div class="gallery" id="gallery"></div>
     </section>
   </main>
+
+  <!-- 底岛导航（移动端） -->
+  <nav class="bottom-nav" role="tablist" aria-label="主导航">
+    <button class="nav-item active" data-tab="generate" type="button" role="tab">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>生成</span>
+    </button>
+    <button class="nav-item" data-tab="edit" type="button" role="tab">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>编辑</span>
+    </button>
+    <button class="nav-item" data-tab="gallery" type="button" role="tab">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+      <span>图库</span>
+      <span class="badge" id="gallery-badge-mobile">0</span>
+    </button>
+    <button class="nav-item" data-tab="settings" type="button" role="tab">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/></svg>
+      <span>设置</span>
+    </button>
+  </nav>
+
+  <!-- 移动端设置面板（底岛 Tab 切换） -->
+  <section class="panel settings-panel mobile-only" id="panel-settings" role="tabpanel">
+    <div class="settings-body" id="settings-body-mobile"></div>
+  </section>
 
   <!-- Lightbox -->
   <div id="modal" class="modal hidden" aria-hidden="true">
@@ -469,11 +505,6 @@
           </div>
         </div>
 
-        <div class="settings-section">
-          <span class="section-title">PWA</span>
-          <p class="muted small" id="pwa-info">在手机 Chrome 打开本页，菜单 → 添加到主屏幕，即可像 APP 一样使用。</p>
-          <button class="primary hidden" id="install-btn">📲 安装到主屏幕</button>
-        </div>
 
         <div class="settings-section">
           <span class="section-title">关于</span>
@@ -518,7 +549,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=1.8.2"></script>
-  <script src="/app.js?v=1.8.2"></script>
+  <script src="/storage.js?v=2.0"></script>
+  <script src="/app.js?v=2.0"></script>
 </body>
 </html>

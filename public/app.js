@@ -225,16 +225,64 @@ const Client = {
 };
 
 // =======================
-// Tabs
+// Tabs（统一桌面 .tab + 移动 .nav-item）
 // =======================
+function switchTab(tabName) {
+  // 桌面顶栏 tab
+  $$('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+  // 移动底岛 nav-item
+  $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+  // 面板切换
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  if (tabName === 'settings') {
+    openSettings();
+  } else {
+    $(`#panel-${tabName}`)?.classList.add('active');
+    if (tabName === 'gallery') loadGallery();
+  }
+}
+
 $$('.tab').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+$$('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// =======================
+// 浮动输入条（移动端）
+// =======================
+$$('.float-send').forEach(btn => {
   btn.addEventListener('click', () => {
-    $$('.tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    $$('.panel').forEach(p => p.classList.remove('active'));
-    $(`#panel-${btn.dataset.tab}`).classList.add('active');
-    if (btn.dataset.tab === 'gallery') loadGallery();
+    const target = btn.dataset.target;
+    const input = btn.closest('.float-bar').querySelector('.float-input');
+    const text = (input?.value || '').trim();
+    if (!text) return;
+    const form = $(`#${target}`);
+    if (!form) return;
+    const ta = form.querySelector('textarea[name="prompt"]');
+    if (ta) {
+      ta.value = text;
+      ta.dispatchEvent(new Event('input'));
+    }
+    input.value = '';
+    form.requestSubmit();
   });
+});
+$$('.float-input').forEach(input => {
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.closest('.float-bar').querySelector('.float-send')?.click();
+    }
+  });
+});
+// 点击 sheet 外部关闭
+document.addEventListener('click', e => {
+  const sheet = document.querySelector('.sidebar.sheet-open');
+  if (sheet && !sheet.contains(e.target) && !e.target.closest('.float-bar')) {
+    sheet.classList.remove('sheet-open');
+  }
 });
 
 // =======================
@@ -990,24 +1038,44 @@ $('#view-masonry').addEventListener('click', () => {
 async function updateGalleryBadge() {
   const count = await Storage.count();
   $('#gallery-badge').textContent = count;
+  const mb = $('#gallery-badge-mobile');
+  if (mb) mb.textContent = count;
 }
 
 // =======================
 // 设置弹窗
 // =======================
 function openSettings() {
-  $('#settings-modal').classList.remove('hidden');
+  const isMobile = window.innerWidth <= 980;
+  if (isMobile) {
+    // 移动端：确保 settings-body 在移动端 panel 中
+    const body = $('#settings-modal .settings-body') || $('#settings-body-mobile .settings-body');
+    const dst = $('#settings-body-mobile');
+    if (body && dst && body.parentElement !== dst) dst.appendChild(body);
+    $('#panel-settings').classList.add('active');
+  } else {
+    // 桌面端：确保 settings-body 在 modal 中，然后显示 modal
+    const body = $('#settings-body-mobile .settings-body') || $('#settings-modal .settings-body');
+    const frame = $('#settings-modal .settings-frame');
+    if (body && frame && body.parentElement !== frame) frame.appendChild(body);
+    $('#settings-modal').classList.remove('hidden');
+  }
   $('#api-key-input').value = Client.getKey();
   const dk = $('#deepseek-key-input');
   if (dk) dk.value = getDeepSeekKey();
-  // 同步主题按钮状态
   const mode = getThemeMode();
   document.querySelectorAll('.theme-opt').forEach(b => {
     b.setAttribute('aria-checked', String(b.dataset.theme === mode));
   });
   refreshStorageInfo();
 }
-function closeSettings() { $('#settings-modal').classList.add('hidden'); }
+function closeSettings() {
+  // 把 settings-body 移回 modal
+  const body = $('#settings-body-mobile .settings-body') || $('#settings-modal .settings-body');
+  const frame = $('#settings-modal .settings-frame');
+  if (body && frame && body.parentElement !== frame) frame.appendChild(body);
+  $('#settings-modal').classList.add('hidden');
+}
 $('#open-settings').addEventListener('click', openSettings);
 $('#settings-close').addEventListener('click', closeSettings);
 $('#settings-modal .modal-bg').addEventListener('click', closeSettings);
@@ -1189,28 +1257,6 @@ if (aiExpandBtn) {
 }
 
 // =======================
-// PWA: Service Worker + 安装
-// =======================
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-
-let deferredInstall = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredInstall = e;
-  $('#install-btn')?.classList.remove('hidden');
-});
-$('#install-btn')?.addEventListener('click', async () => {
-  if (!deferredInstall) return;
-  deferredInstall.prompt();
-  const { outcome } = await deferredInstall.userChoice;
-  if (outcome === 'accepted') toast('已添加到主屏幕');
-  deferredInstall = null;
-  $('#install-btn').classList.add('hidden');
-});
-
-// =======================
 // 键盘快捷键
 // =======================
 document.addEventListener('keydown', e => {
@@ -1222,9 +1268,10 @@ document.addEventListener('keydown', e => {
     if (!$('#modal').classList.contains('hidden')) closeModal();
     if (!$('#settings-modal').classList.contains('hidden')) closeSettings();
   }
-  if ((e.metaKey || e.ctrlKey) && /^[1-3]$/.test(e.key)) {
+  if ((e.metaKey || e.ctrlKey) && /^[1-4]$/.test(e.key)) {
     e.preventDefault();
-    $$('.tab')[parseInt(e.key, 10) - 1]?.click();
+    const tabs = ['generate', 'edit', 'gallery', 'settings'];
+    switchTab(tabs[parseInt(e.key, 10) - 1]);
   }
 });
 
