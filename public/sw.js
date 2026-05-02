@@ -1,4 +1,4 @@
-const CACHE = 'gpt-image-v8';
+const CACHE = 'gpt-image-v9';
 const ASSETS = [
   '/',
   '/index.html',

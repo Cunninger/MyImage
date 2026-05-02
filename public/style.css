@@ -2293,12 +2293,14 @@ main {
   }
   .float-send:active { transform: scale(0.9); }
 
-  /* 移动端 panel: 隐藏 sidebar,全屏 canvas */
+  /* 移动端 panel: 单列布局 sidebar + canvas */
   .panel {
     grid-template-columns: 1fr !important;
   }
   .panel .sidebar {
-    display: none;
+    position: static;
+    top: auto;
+    padding: 0 8px;
   }
   .panel .sidebar.sheet-open {
     display: block;
