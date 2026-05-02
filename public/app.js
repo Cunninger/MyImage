@@ -837,7 +837,7 @@ function closeModal() {
 // =======================
 // 任务管理（含队列调度）
 // =======================
-const MAX_CONCURRENT = 2;
+const MAX_CONCURRENT = 4;
 let activeTaskCount = 0;
 let taskSeq = 0;
 let taskQueue = [];      // { id, type, opts, container, cards, progressors, abortCtrl, status, taskId }
@@ -1646,7 +1646,7 @@ document.addEventListener('click', e => {
 // =======================
 // 版本更新检查
 // =======================
-const APP_VERSION = '2.0.11';
+const APP_VERSION = '2.0.12';
 const UPDATE_CHECK_KEY = 'last_update_check';
 const UPDATE_DISMISS_KEY = 'dismissed_update_version';
 
@@ -1681,7 +1681,8 @@ async function checkUpdate(force = false) {
 
     const apkAsset = (data.assets || []).find(a => a.name?.endsWith('.apk'));
     const downloadUrl = apkAsset?.browser_download_url || url;
-    const mirrorUrl = `https://gh.api.99988866.xyz/${downloadUrl}`;
+    const mirrorA = `https://gh-proxy.com/${downloadUrl}`;
+    const mirrorB = `https://ghproxy.net/${downloadUrl}`;
 
     if (!latest || !isNewer(latest, APP_VERSION)) {
       updateAboutStatus(`✅ 当前已是最新版本 v${APP_VERSION}`);
@@ -1690,9 +1691,9 @@ async function checkUpdate(force = false) {
 
     const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY);
     if (dismissed !== latest) {
-      showUpdateBanner(latest, downloadUrl, mirrorUrl);
+      showUpdateBanner(latest, downloadUrl, mirrorA, mirrorB);
     }
-    updateAboutStatus(`🎉 发现新版本 ${latest}，<a href="${downloadUrl}" target="_blank" rel="noopener">官方下载</a> · <a href="${mirrorUrl}" target="_blank" rel="noopener">镜像加速</a>`);
+    updateAboutStatus(`🎉 发现新版本 ${latest}，<a href="${downloadUrl}" target="_blank" rel="noopener">官方</a> · <a href="${mirrorA}" target="_blank" rel="noopener">镜像A</a> · <a href="${mirrorB}" target="_blank" rel="noopener">镜像B</a>`);
     return 'new';
   } catch (e) {
     updateAboutStatus('检查失败，请稍后重试');
@@ -1705,7 +1706,7 @@ function updateAboutStatus(html) {
   if (el) el.innerHTML = html;
 }
 
-function showUpdateBanner(version, downloadUrl, mirrorUrl) {
+function showUpdateBanner(version, downloadUrl, mirrorA, mirrorB) {
   if ($('#update-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'update-banner';
@@ -1713,8 +1714,9 @@ function showUpdateBanner(version, downloadUrl, mirrorUrl) {
     <div class="update-banner-inner">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span>发现新版本 <strong>${version}</strong>，建议更新以获得最佳体验</span>
-      <a href="${downloadUrl}" target="_blank" rel="noopener" class="update-link">官方下载</a>
-      <a href="${mirrorUrl}" target="_blank" rel="noopener" class="update-link mirror">镜像加速</a>
+      <a href="${downloadUrl}" target="_blank" rel="noopener" class="update-link">官方</a>
+      <a href="${mirrorA}" target="_blank" rel="noopener" class="update-link mirror">镜像A</a>
+      <a href="${mirrorB}" target="_blank" rel="noopener" class="update-link mirror">镜像B</a>
       <button type="button" class="update-dismiss" aria-label="忽略此版本">✕</button>
     </div>
   `;
