@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AI 画图工坊</string>
-    <string name="title_activity_main">AI 画图工坊</string>
+    <string name="app_name">易何画境</string>
+    <string name="title_activity_main">易何画境</string>
     <string name="package_name">com.cunninger.gptimage</string>
     <string name="custom_url_scheme">com.cunninger.gptimage</string>
 </resources>

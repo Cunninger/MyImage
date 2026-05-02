@@ -1,6 +1,6 @@
 {
   "appId": "com.cunninger.gptimage",
-  "appName": "AI 画图工坊",
+  "appName": "易何画境",
   "webDir": "public",
   "android": {
     "allowMixedContent": true,

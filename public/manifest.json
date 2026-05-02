@@ -1,7 +1,7 @@
 {
-  "name": "AI 画图工坊",
-  "short_name": "画图",
-  "description": "基于 pearapi.ai 的 AI 画图应用",
+  "name": "易何画境",
+  "short_name": "画境",
+  "description": "AI 图像生成与编辑工具",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
