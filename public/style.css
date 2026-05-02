@@ -445,6 +445,10 @@ main {
   min-height: 80px;
   line-height: 1.5;
   font-family: inherit;
+  -webkit-user-modify: read-write-plaintext-only;
+  user-select: text;
+  -webkit-user-select: text;
+  caret-color: var(--accent);
 }
 
 .prompt-input { font-size: 14px; }
@@ -1878,6 +1882,16 @@ main {
 .about-desc {
   font-size: 12px;
   color: var(--text-muted);
+}
+.about-version {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--grad-soft);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  padding: 2px 10px;
+  border-radius: var(--r-full);
+  letter-spacing: 0.05em;
 }
 .about-links {
   display: flex;
