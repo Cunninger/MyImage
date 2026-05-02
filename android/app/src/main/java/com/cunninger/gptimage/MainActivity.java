@@ -23,6 +23,15 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(BackgroundTaskPlugin.class);
         super.onCreate(savedInstanceState);
+        clearWebViewCache();
+    }
+
+    private void clearWebViewCache() {
+        try {
+            android.webkit.CookieManager.getInstance().removeAllCookies(null);
+            android.webkit.WebStorage.getInstance().deleteAllData();
+            getCacheDir().deleteOnExit();
+        } catch (Exception ignored) {}
     }
 
     @Override
