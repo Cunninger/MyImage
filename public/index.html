@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v2.0.3</title>
+  <title>易何画境 v2.0.4</title>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-  <link rel="stylesheet" href="/style.css?v=2.0.3" />
+  <link rel="stylesheet" href="/style.css?v=2.0.4" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -460,8 +460,14 @@
           <p class="muted small">导出或导入 API 密钥配置，方便在多设备间同步。</p>
           <textarea id="config-text" rows="3" placeholder='粘贴配置 JSON，格式: {"pearapi_key":"sk-...","deepseek_key":"sk-..."}'></textarea>
           <div class="settings-actions">
-            <button class="primary" id="export-config">导出到上方</button>
-            <button class="ghost" id="import-config">从上方导入</button>
+            <button class="primary" id="export-config">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              导出到上方
+            </button>
+            <button class="ghost" id="import-config">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              从上方导入
+            </button>
           </div>
         </div>
 
@@ -475,8 +481,14 @@
             <p class="muted small">本地直跑：浏览器/APP 直接调 pearapi.ai，所有图片存在本机。Key 也只保存在本机。</p>
           </label>
           <div class="settings-actions">
-            <button class="primary" id="save-key">保存</button>
-            <button class="ghost" id="clear-key">清除</button>
+            <button class="primary" id="save-key">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 3 7 8 15 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              保存
+            </button>
+            <button class="ghost" id="clear-key">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              清除
+            </button>
           </div>
         </div>
 
@@ -484,8 +496,14 @@
           <span class="section-title">本地存储</span>
           <div class="storage-info" id="storage-info">加载中...</div>
           <div class="settings-actions">
-            <button class="ghost" id="export-history">导出全部</button>
-            <button class="ghost danger-btn" id="clear-history">清空本地图库</button>
+            <button class="ghost" id="export-history">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              导出全部
+            </button>
+            <button class="ghost danger-btn" id="clear-history">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              清空本地图库
+            </button>
           </div>
         </div>
 
@@ -500,8 +518,14 @@
             <p class="muted small">用于 AI 智能扩写提示词。也可填写其他兼容 OpenAI 格式的 API Key。</p>
           </label>
           <div class="settings-actions">
-            <button class="primary" id="save-deepseek-key">保存</button>
-            <button class="ghost" id="clear-deepseek-key">清除</button>
+            <button class="primary" id="save-deepseek-key">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 3 7 8 15 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              保存
+            </button>
+            <button class="ghost" id="clear-deepseek-key">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              清除
+            </button>
           </div>
         </div>
 
@@ -549,7 +573,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=2.0.3"></script>
-  <script src="/app.js?v=2.0.3"></script>
+  <script src="/storage.js?v=2.0.4"></script>
+  <script src="/app.js?v=2.0.4"></script>
 </body>
 </html>
