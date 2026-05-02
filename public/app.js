@@ -758,6 +758,7 @@ function openModal(item) {
     <span>模型: ${item.model || '-'} · 比例: ${item.aspect_ratio || '默认'} · ${new Date(item.createdAt).toLocaleString('zh-CN')}</span>
   `;
   renderModalTags(item);
+  $('#modal-drawer')?.classList.remove('expanded');
   $('#modal').classList.remove('hidden');
 }
 
@@ -825,7 +826,13 @@ $('.modal-bg').addEventListener('click', closeModal);
 $('#modal-download').addEventListener('click', () => {
   if (currentModalItem) downloadImage(currentModalItem);
 });
-function closeModal() { $('#modal').classList.add('hidden'); }
+$('#modal-drawer-handle')?.addEventListener('click', () => {
+  $('#modal-drawer')?.classList.toggle('expanded');
+});
+function closeModal() {
+  $('#modal-drawer')?.classList.remove('expanded');
+  $('#modal').classList.add('hidden');
+}
 
 // =======================
 // 任务管理（含队列调度）
@@ -1639,7 +1646,7 @@ document.addEventListener('click', e => {
 // =======================
 // 版本更新检查
 // =======================
-const APP_VERSION = '2.0.10';
+const APP_VERSION = '2.0.11';
 const UPDATE_CHECK_KEY = 'last_update_check';
 const UPDATE_DISMISS_KEY = 'dismissed_update_version';
 
