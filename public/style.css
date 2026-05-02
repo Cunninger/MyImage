@@ -1438,6 +1438,10 @@ main {
   border-color: var(--accent);
   color: var(--text);
 }
+.toggle-visibility .eye-open { display: block; }
+.toggle-visibility .eye-closed { display: none; }
+.toggle-visibility[aria-label="隐藏密码"] .eye-open { display: none; }
+.toggle-visibility[aria-label="隐藏密码"] .eye-closed { display: block; }
 
 .settings-body textarea {
   resize: vertical;
@@ -2709,6 +2713,9 @@ main {
 
   /* 底岛下的弹窗不需要额外 padding */
   .modal { padding: 0; }
+
+  /* 移动端隐藏拖拽提示 */
+  .drag-hint { display: none; }
 }
 
 /* 桌面端:隐藏底岛相关 */
@@ -2717,4 +2724,64 @@ main {
   .float-bar { display: none !important; }
   .settings-panel { display: none !important; }
   .mobile-only { display: none !important; }
+}
+
+/* ============================================
+   版本更新提示 Banner
+   ============================================ */
+#update-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(236, 72, 153, 0.95));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  font-size: 13px;
+  animation: slideDown 0.4s var(--ease-spring);
+}
+.update-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: 10px var(--s-4);
+  max-width: 600px;
+  margin: 0 auto;
+}
+.update-banner-inner svg { flex-shrink: 0; }
+.update-link {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.update-link:hover { background: rgba(255, 255, 255, 0.3); }
+.update-dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.update-dismiss:hover { background: rgba(255, 255, 255, 0.3); }
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }

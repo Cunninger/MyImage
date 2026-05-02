@@ -1,10 +1,10 @@
-const CACHE = 'gpt-image-v13';
+const CACHE = 'gpt-image-v14';
 const ASSETS = [
   '/',
   '/index.html',
-  '/style.css?v=2.0.6',
-  '/app.js?v=2.0.6',
-  '/storage.js?v=2.0.6',
+  '/style.css?v=2.0.7',
+  '/app.js?v=2.0.7',
+  '/storage.js?v=2.0.7',
   '/icons/icon.svg',
 ];
 

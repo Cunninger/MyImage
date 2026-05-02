@@ -1224,8 +1224,6 @@ $$('.toggle-visibility').forEach(btn => {
     if (!input) return;
     const isHidden = input.type === 'password';
     input.type = isHidden ? 'text' : 'password';
-    btn.querySelector('.eye-open').hidden = isHidden;
-    btn.querySelector('.eye-closed').hidden = !isHidden;
     btn.setAttribute('aria-label', isHidden ? '隐藏密码' : '显示密码');
   });
 });
@@ -1450,3 +1448,67 @@ document.addEventListener('click', e => {
   $('#prompt-drawer-close').addEventListener('click', closeDrawer);
   $('#prompt-drawer .modal-bg').addEventListener('click', closeDrawer);
 })();
+
+// =======================
+// 版本更新检查
+// =======================
+const APP_VERSION = '2.0.7';
+const UPDATE_CHECK_KEY = 'last_update_check';
+const UPDATE_DISMISS_KEY = 'dismissed_update_version';
+
+function parseVersion(v) {
+  const m = v.replace(/^v/, '').match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+}
+function isNewer(remote, local) {
+  const r = parseVersion(remote), l = parseVersion(local);
+  for (let i = 0; i < 3; i++) {
+    if (r[i] > l[i]) return true;
+    if (r[i] < l[i]) return false;
+  }
+  return false;
+}
+
+async function checkUpdate() {
+  try {
+    const lastCheck = parseInt(localStorage.getItem(UPDATE_CHECK_KEY) || '0', 10);
+    const now = Date.now();
+    // 24 小时内只检查一次
+    if (now - lastCheck < 24 * 60 * 60 * 1000) return;
+    localStorage.setItem(UPDATE_CHECK_KEY, String(now));
+
+    const res = await fetch('https://api.github.com/repos/Cunninger/MyImage/releases/latest', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const latest = data.tag_name || '';
+    if (!latest || !isNewer(latest, APP_VERSION)) return;
+
+    const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY);
+    if (dismissed === latest) return;
+
+    showUpdateBanner(latest, data.html_url || 'https://github.com/Cunninger/MyImage/releases');
+  } catch (e) { /* 静默失败 */ }
+}
+
+function showUpdateBanner(version, url) {
+  if ($('#update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.innerHTML = `
+    <div class="update-banner-inner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>发现新版本 <strong>${version}</strong>，建议更新以获得最佳体验</span>
+      <a href="${url}" target="_blank" rel="noopener" class="update-link">去更新</a>
+      <button type="button" class="update-dismiss" aria-label="忽略此版本">✕</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+  banner.querySelector('.update-dismiss').addEventListener('click', () => {
+    localStorage.setItem(UPDATE_DISMISS_KEY, version);
+    banner.remove();
+  });
+}
+
+// 启动时检查更新（延迟 3 秒，避免阻塞首屏）
+setTimeout(checkUpdate, 3000);

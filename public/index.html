@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v2.0.6</title>
+  <title>易何画境 v2.0.7</title>
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
-  <link rel="stylesheet" href="/style.css?v=2.0.6" />
+  <link rel="stylesheet" href="/style.css?v=2.0.7" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -69,11 +69,7 @@
                 <select name="model" class="model-select" required>
                   <option value="gpt-image-2-4k">gpt-image-2-4k ✨ 4K 高清</option>
                   <option value="gpt-image-2-2k">gpt-image-2-2k 2K 标清</option>
-                  <option value="grok-4-image">grok-4-image</option>
                   <option value="gpt-image-1">gpt-image-1</option>
-                  <option value="dall-e-3">dall-e-3</option>
-                  <option value="flux-pro">flux-pro</option>
-                  <option value="seedream-4-0">seedream-4-0</option>
                 </select>
                 <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
@@ -166,7 +162,7 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
+                <p><span class="drag-hint"><strong>拖拽图片到这里</strong>，或 </span><span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
                 <p class="muted small">支持 JPG / PNG / WEBP，单张不超过 25MB</p>
               </div>
               <div class="dropzone-files" id="files-generate"></div>
@@ -223,11 +219,7 @@
                 <select name="model" required>
                   <option value="gpt-image-2-4k">gpt-image-2-4k ✨ 4K</option>
                   <option value="gpt-image-2-2k">gpt-image-2-2k 2K</option>
-                  <option value="grok-4-image">grok-4-image</option>
                   <option value="gpt-image-1">gpt-image-1</option>
-                  <option value="dall-e-3">dall-e-3</option>
-                  <option value="flux-pro">flux-pro</option>
-                  <option value="seedream-4-0">seedream-4-0</option>
                 </select>
                 <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </div>
@@ -247,7 +239,7 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
+                <p><span class="drag-hint"><strong>拖拽图片到这里</strong>，或 </span><span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
               </div>
               <div class="dropzone-files" id="files-edit"></div>
             </div>
@@ -565,7 +557,7 @@
           <span class="section-title">关于</span>
           <div class="about-card">
             <div class="about-author">金陵易何</div>
-            <div class="about-version">v2.0.6</div>
+            <div class="about-version">v2.0.7</div>
             <div class="about-desc">开源 AI 图像生成与编辑工具</div>
             <div class="about-links">
               <a href="https://github.com/Cunninger/MyImage" target="_blank" rel="noopener" class="about-link">
@@ -605,7 +597,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=2.0.6"></script>
-  <script src="/app.js?v=2.0.6"></script>
+  <script src="/storage.js?v=2.0.7"></script>
+  <script src="/app.js?v=2.0.7"></script>
 </body>
 </html>
