@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d13" />
-  <title>易何画境 v1.8.1</title>
+  <title>易何画境 v1.8.2</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <link rel="stylesheet" href="/style.css?v=1.8" />
+  <link rel="stylesheet" href="/style.css?v=1.8.2" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -421,10 +421,11 @@
 
         <div class="settings-section">
           <span class="section-title">配置迁移</span>
-          <p class="muted small">导出 API 密钥配置到剪贴板，或从剪贴板导入，方便在多设备间同步。</p>
+          <p class="muted small">导出或导入 API 密钥配置，方便在多设备间同步。</p>
+          <textarea id="config-text" rows="3" placeholder='粘贴配置 JSON，格式: {"pearapi_key":"sk-...","deepseek_key":"sk-..."}'></textarea>
           <div class="settings-actions">
-            <button class="primary" id="export-config">导出配置到剪贴板</button>
-            <button class="ghost" id="import-config">从剪贴板导入配置</button>
+            <button class="primary" id="export-config">导出到上方</button>
+            <button class="ghost" id="import-config">从上方导入</button>
           </div>
         </div>
 
@@ -517,7 +518,7 @@
     </div>
   </div>
 
-  <script src="/storage.js?v=1.8"></script>
-  <script src="/app.js?v=1.8"></script>
+  <script src="/storage.js?v=1.8.2"></script>
+  <script src="/app.js?v=1.8.2"></script>
 </body>
 </html>

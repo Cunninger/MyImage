@@ -1105,14 +1105,14 @@ $('#export-config').addEventListener('click', () => {
   if (!config.pearapi_key && !config.deepseek_key) {
     return toast('没有可导出的配置', 'error');
   }
-  navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
-    toast('配置已复制到剪贴板');
-  }).catch(() => toast('复制失败', 'error'));
+  $('#config-text').value = JSON.stringify(config, null, 2);
+  toast('配置已导出到上方文本框，可复制分享');
 });
 
 $('#import-config').addEventListener('click', async () => {
   try {
-    const text = await navigator.clipboard.readText();
+    const text = ($('#config-text').value || '').trim();
+    if (!text) return toast('请在上方文本框中粘贴配置 JSON', 'error');
     const config = JSON.parse(text);
     if (config.pearapi_key) {
       Client.setKey(config.pearapi_key);
@@ -1125,7 +1125,7 @@ $('#import-config').addEventListener('click', async () => {
     updateStatusUI();
     toast('配置导入成功');
   } catch (e) {
-    toast('导入失败：请确保剪贴板中有有效的 JSON 配置', 'error');
+    toast('导入失败：请确保粘贴了有效的 JSON 配置', 'error');
   }
 });
 
