@@ -1639,7 +1639,7 @@ document.addEventListener('click', e => {
 // =======================
 // 版本更新检查
 // =======================
-const APP_VERSION = '2.0.9';
+const APP_VERSION = '2.0.10';
 const UPDATE_CHECK_KEY = 'last_update_check';
 const UPDATE_DISMISS_KEY = 'dismissed_update_version';
 
@@ -1672,6 +1672,10 @@ async function checkUpdate(force = false) {
     const latest = data.tag_name || '';
     const url = data.html_url || 'https://github.com/Cunninger/MyImage/releases';
 
+    const apkAsset = (data.assets || []).find(a => a.name?.endsWith('.apk'));
+    const downloadUrl = apkAsset?.browser_download_url || url;
+    const mirrorUrl = `https://gh.api.99988866.xyz/${downloadUrl}`;
+
     if (!latest || !isNewer(latest, APP_VERSION)) {
       updateAboutStatus(`✅ 当前已是最新版本 v${APP_VERSION}`);
       return 'latest';
@@ -1679,9 +1683,9 @@ async function checkUpdate(force = false) {
 
     const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY);
     if (dismissed !== latest) {
-      showUpdateBanner(latest, url);
+      showUpdateBanner(latest, downloadUrl, mirrorUrl);
     }
-    updateAboutStatus(`🎉 发现新版本 ${latest}，<a href="${url}" target="_blank" rel="noopener">去下载</a>`);
+    updateAboutStatus(`🎉 发现新版本 ${latest}，<a href="${downloadUrl}" target="_blank" rel="noopener">官方下载</a> · <a href="${mirrorUrl}" target="_blank" rel="noopener">镜像加速</a>`);
     return 'new';
   } catch (e) {
     updateAboutStatus('检查失败，请稍后重试');
@@ -1694,7 +1698,7 @@ function updateAboutStatus(html) {
   if (el) el.innerHTML = html;
 }
 
-function showUpdateBanner(version, url) {
+function showUpdateBanner(version, downloadUrl, mirrorUrl) {
   if ($('#update-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'update-banner';
@@ -1702,7 +1706,8 @@ function showUpdateBanner(version, url) {
     <div class="update-banner-inner">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       <span>发现新版本 <strong>${version}</strong>，建议更新以获得最佳体验</span>
-      <a href="${url}" target="_blank" rel="noopener" class="update-link">去更新</a>
+      <a href="${downloadUrl}" target="_blank" rel="noopener" class="update-link">官方下载</a>
+      <a href="${mirrorUrl}" target="_blank" rel="noopener" class="update-link mirror">镜像加速</a>
       <button type="button" class="update-dismiss" aria-label="忽略此版本">✕</button>
     </div>
   `;
