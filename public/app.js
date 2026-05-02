@@ -1639,7 +1639,7 @@ document.addEventListener('click', e => {
 // =======================
 // 版本更新检查
 // =======================
-const APP_VERSION = '2.0.8';
+const APP_VERSION = '2.0.9';
 const UPDATE_CHECK_KEY = 'last_update_check';
 const UPDATE_DISMISS_KEY = 'dismissed_update_version';
 
