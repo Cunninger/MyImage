@@ -81,6 +81,28 @@ function savePromptHistory(text, model) {
   localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(history.slice(0, PROMPT_HISTORY_MAX)));
 }
 
+// 主题管理：auto / light / dark，localStorage 持久化，跟随系统偏好
+const THEME_KEY = 'theme_mode';
+const themeMq = window.matchMedia('(prefers-color-scheme: light)');
+function getThemeMode() { return localStorage.getItem(THEME_KEY) || 'auto'; }
+function applyTheme(mode) {
+  const resolved = mode === 'auto' ? (themeMq.matches ? 'light' : 'dark') : mode;
+  document.documentElement.setAttribute('data-theme', resolved);
+  const themeColor = resolved === 'light' ? '#f5f7fa' : '#0b0d13';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
+}
+function setThemeMode(mode) {
+  if (!['auto', 'light', 'dark'].includes(mode)) mode = 'auto';
+  if (mode === 'auto') localStorage.removeItem(THEME_KEY);
+  else localStorage.setItem(THEME_KEY, mode);
+  applyTheme(mode);
+  document.querySelectorAll('.theme-opt').forEach(b => {
+    b.setAttribute('aria-checked', String(b.dataset.theme === mode));
+  });
+}
+applyTheme(getThemeMode());
+themeMq.addEventListener?.('change', () => { if (getThemeMode() === 'auto') applyTheme('auto'); });
+
 // 自定义确认对话框
 function confirmDialog(msg, { title = '确认', confirmText = '确定', danger = false } = {}) {
   return new Promise(resolve => {
@@ -388,8 +410,12 @@ function buildCard(item, container, prepend = true) {
   const card = document.createElement('div');
   card.className = 'card';
   const src = Client.imgSrc(item);
+  const starred = !!item.starred;
   card.innerHTML = `
     <img src="${src}" alt="" loading="lazy" />
+    <button class="star-corner${starred ? ' starred' : ''}" type="button" aria-label="${starred ? '取消收藏' : '收藏'}">
+      <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" stroke-linejoin="round"/></svg>
+    </button>
     <div class="card-overlay">
       <div class="card-overlay-content">
         <div class="card-prompt">${escapeHtml(item.prompt || '')}</div>
@@ -412,6 +438,7 @@ function buildCard(item, container, prepend = true) {
   let lastTapTime = 0;
   card.addEventListener('click', e => {
     if (e.target.closest('.card-actions button')) return;
+    if (e.target.closest('.star-corner')) return;
     const now = Date.now();
     if (now - lastTapTime < 300) {
       lastTapTime = 0;
@@ -425,6 +452,28 @@ function buildCard(item, container, prepend = true) {
       }
     }
     lastTapTime = now;
+  });
+  // 收藏切换
+  const starBtn = card.querySelector('.star-corner');
+  starBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    const next = !starBtn.classList.contains('starred');
+    starBtn.classList.toggle('starred', next);
+    starBtn.classList.add('pop');
+    starBtn.setAttribute('aria-label', next ? '取消收藏' : '收藏');
+    setTimeout(() => starBtn.classList.remove('pop'), 400);
+    item.starred = next ? 1 : 0;
+    try {
+      await Storage.setStarred(item.id, next);
+      const idx = galleryData.findIndex(x => x.id === item.id);
+      if (idx >= 0) galleryData[idx].starred = item.starred;
+      // 若当前在 starred 筛选下且取消收藏，重新渲染让其消失
+      if (!next && $('#gallery-filter')?.value === 'starred') renderGallery();
+    } catch (err) {
+      starBtn.classList.toggle('starred', !next);
+      item.starred = !next ? 1 : 0;
+      toast('收藏失败', 'error');
+    }
   });
   card.querySelector('.action-download').addEventListener('click', e => { e.stopPropagation(); downloadImage(item); });
   card.querySelector('.action-regen').addEventListener('click', e => {
@@ -594,11 +643,59 @@ function createTaskCard(prompt) {
   card.className = 'task-card';
   card.innerHTML = `
     <button type="button" class="task-cancel" title="取消">×</button>
-    <div class="task-spinner-mini"></div>
+    <div class="task-progress-ring">
+      <svg viewBox="0 0 64 64">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+        <circle class="ring-track" cx="32" cy="32" r="28"/>
+        <circle class="ring-fill" cx="32" cy="32" r="28"/>
+      </svg>
+      <span class="ring-pct">0%</span>
+    </div>
     <div class="task-status-text">生成中...</div>
+    <div class="task-elapsed">0s</div>
     <div class="task-prompt">${escapeHtml((prompt || '(无提示词)').slice(0, 200))}</div>
   `;
   return card;
+}
+
+// 任务卡片伪进度动画
+const RING_CIRCUMFERENCE = 175.93;
+function startTaskProgress(card) {
+  const fill = card.querySelector('.ring-fill');
+  const pctEl = card.querySelector('.ring-pct');
+  const elapsedEl = card.querySelector('.task-elapsed');
+  const startedAt = Date.now();
+  let raf;
+  const tick = () => {
+    const elapsed = (Date.now() - startedAt) / 1000;
+    let pct;
+    // 前 5 秒快速到 60%，5-25s 缓慢到 85%，之后逼近但不超过 92%
+    if (elapsed < 5) pct = (elapsed / 5) * 60;
+    else if (elapsed < 25) pct = 60 + ((elapsed - 5) / 20) * 25;
+    else pct = 85 + Math.min(7, (elapsed - 25) * 0.2);
+    pct = Math.min(92, pct);
+    fill.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - pct / 100));
+    pctEl.textContent = `${Math.round(pct)}%`;
+    elapsedEl.textContent = `已等待 ${Math.floor(elapsed)}s`;
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  return {
+    finish() {
+      cancelAnimationFrame(raf);
+      fill.style.strokeDashoffset = '0';
+      pctEl.textContent = '100%';
+      elapsedEl.textContent = '完成';
+    },
+    cancel() {
+      cancelAnimationFrame(raf);
+    },
+  };
 }
 
 function setTaskCardError(card, msg) {
@@ -619,10 +716,12 @@ async function runTask({ type, opts, container }) {
   savePromptHistory(opts.prompt || '', opts.model || '');
 
   const cards = [];
+  const progressors = [];
   for (let i = 0; i < (opts.n || 1); i++) {
     const c = createTaskCard(opts.prompt);
     container.prepend(c);
     cards.push(c);
+    progressors.push(startTaskProgress(c));
   }
 
   activeTaskCount += (opts.n || 1);
@@ -635,9 +734,10 @@ async function runTask({ type, opts, container }) {
     try { await window.Capacitor.Plugins.BackgroundGen.startForeground(); } catch(e) {}
   }
 
-  cards.forEach(c => {
+  cards.forEach((c, idx) => {
     c.querySelector('.task-cancel').addEventListener('click', () => {
       // 简单实现：移除卡片（请求继续，但用户不再看到）
+      progressors.forEach(p => p.cancel());
       cards.forEach(x => x.remove());
     });
   });
@@ -645,12 +745,16 @@ async function runTask({ type, opts, container }) {
   try {
     const items = await Client.generateOrEdit({ type, ...opts });
     if (!items?.length) throw new Error('未返回图片');
+    progressors.forEach(p => p.finish());
+    // 让 100% 显示一刻再切换到结果卡
+    await new Promise(r => setTimeout(r, 250));
     cards.forEach(c => c.remove());
     items.forEach(it => buildCard(it, container));
     toast(`#${taskId} 完成：${(opts.prompt || '').slice(0, 24) || '已生成'} (${items.length} 张)`);
     playDoneSound();
     updateGalleryBadge();
   } catch (err) {
+    progressors.forEach(p => p.cancel());
     cards.forEach(c => {
       setTaskCardError(c, err.message);
       c.querySelector('.task-cancel').onclick = () => c.remove();
@@ -749,18 +853,22 @@ function renderGallery() {
   const container = $('#gallery');
 
   let list = galleryData;
-  if (filter) list = list.filter(x => x.type === filter);
+  if (filter === 'starred') list = list.filter(x => x.starred);
+  else if (filter) list = list.filter(x => x.type === filter);
   if (search) list = list.filter(x => (x.prompt || '').toLowerCase().includes(search));
 
   container.innerHTML = '';
   if (list.length === 0) {
+    const noStarred = filter === 'starred' && galleryData.length > 0;
     container.innerHTML = `
       <div class="empty-state" style="grid-column:1/-1">
         <div class="empty-icon">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          ${noStarred
+            ? '<svg width="64" height="64" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+            : '<svg width="64" height="64" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'}
         </div>
-        <p>${galleryData.length === 0 ? '还没有保存的图片' : '没有匹配的图片'}</p>
-        <p class="muted">${galleryData.length === 0 ? '去文生图试试看吧' : '试试换个关键词'}</p>
+        <p>${noStarred ? '还没有收藏的图片' : (galleryData.length === 0 ? '还没有保存的图片' : '没有匹配的图片')}</p>
+        <p class="muted">${noStarred ? '点击图片右上角的星标即可收藏' : (galleryData.length === 0 ? '去文生图试试看吧' : '试试换个关键词')}</p>
       </div>
     `;
     return;
@@ -801,12 +909,22 @@ function openSettings() {
   $('#api-key-input').value = Client.getKey();
   const dk = $('#deepseek-key-input');
   if (dk) dk.value = getDeepSeekKey();
+  // 同步主题按钮状态
+  const mode = getThemeMode();
+  document.querySelectorAll('.theme-opt').forEach(b => {
+    b.setAttribute('aria-checked', String(b.dataset.theme === mode));
+  });
   refreshStorageInfo();
 }
 function closeSettings() { $('#settings-modal').classList.add('hidden'); }
 $('#open-settings').addEventListener('click', openSettings);
 $('#settings-close').addEventListener('click', closeSettings);
 $('#settings-modal .modal-bg').addEventListener('click', closeSettings);
+
+// 主题切换按钮
+document.querySelectorAll('.theme-opt').forEach(btn => {
+  btn.addEventListener('click', () => setThemeMode(btn.dataset.theme));
+});
 
 $('#save-key').addEventListener('click', async () => {
   const k = $('#api-key-input').value.trim();

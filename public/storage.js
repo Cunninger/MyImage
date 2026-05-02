@@ -1,7 +1,7 @@
 /* IndexedDB 存储层 — 所有图片和元数据都存在手机本地 */
 
 const DB_NAME = 'gpt-image-store';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'images';
 
 let dbPromise;
@@ -10,12 +10,31 @@ function openDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (e) => {
       const db = req.result;
+      const oldV = e.oldVersion;
+      let store;
       if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
+        store = db.createObjectStore(STORE, { keyPath: 'id' });
         store.createIndex('createdAt', 'createdAt', { unique: false });
         store.createIndex('type', 'type', { unique: false });
+      } else {
+        store = req.transaction.objectStore(STORE);
+      }
+      if (oldV < 2) {
+        if (!store.indexNames.contains('starred')) {
+          store.createIndex('starred', 'starred', { unique: false });
+        }
+        // 现有记录补默认 starred=0（false 不参与索引，故用 0/1 整数）
+        store.openCursor().onsuccess = (ev) => {
+          const c = ev.target.result;
+          if (!c) return;
+          if (c.value.starred === undefined) {
+            c.value.starred = 0;
+            c.update(c.value);
+          }
+          c.continue();
+        };
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -81,6 +100,22 @@ const Storage = {
       const r = store.delete(id);
       r.onsuccess = () => resolve(true);
       r.onerror = () => reject(r.error);
+    });
+  },
+
+  async setStarred(id, starred) {
+    const store = await tx('readwrite');
+    return new Promise((resolve, reject) => {
+      const g = store.get(id);
+      g.onsuccess = () => {
+        const item = g.result;
+        if (!item) return resolve(false);
+        item.starred = starred ? 1 : 0;
+        const p = store.put(item);
+        p.onsuccess = () => resolve(true);
+        p.onerror = () => reject(p.error);
+      };
+      g.onerror = () => reject(g.error);
     });
   },
 
