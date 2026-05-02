@@ -337,30 +337,43 @@ function buildCard(item, container, prepend = true) {
       </div>
     </div>
   `;
-  // 触摸设备：点击切换 overlay，再点击图片才打开 modal
+  // 触摸设备：单击切换 overlay，双击图片打开大图
   if (isTouch) {
+    let lastTap = 0;
     card.addEventListener('click', e => {
-      if (!card.classList.contains('overlay-active')) {
-        e.preventDefault();
-        e.stopPropagation();
-        card.classList.add('overlay-active');
-      }
+      if (card.classList.contains('overlay-active')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      card.classList.add('overlay-active');
     });
-    // 点击 overlay 外部或再次点击图片关闭 overlay
     card.querySelector('img').addEventListener('click', e => {
-      if (card.classList.contains('overlay-active')) {
+      const now = Date.now();
+      if (now - lastTap < 300) {
         e.stopPropagation();
         card.classList.remove('overlay-active');
-      } else {
         openModal(item);
+        lastTap = 0;
+      } else if (card.classList.contains('overlay-active')) {
+        e.stopPropagation();
+        card.classList.remove('overlay-active');
       }
+      lastTap = now;
     });
-    // 点击 overlay 内按钮后关闭
     card.querySelector('.card-overlay').addEventListener('click', () => {
       card.classList.remove('overlay-active');
     });
   } else {
-    card.querySelector('img').addEventListener('click', () => openModal(item));
+    // 桌面端：双击图片查看大图
+    let clickTimer = null;
+    card.querySelector('img').addEventListener('click', e => {
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        openModal(item);
+      } else {
+        clickTimer = setTimeout(() => { clickTimer = null; }, 300);
+      }
+    });
   }
   card.querySelector('.action-download').addEventListener('click', e => { e.stopPropagation(); downloadImage(item); });
   card.querySelector('.action-copy').addEventListener('click', e => {
@@ -673,6 +686,22 @@ $('#refresh-gallery').addEventListener('click', loadGallery);
 $('#gallery-search').addEventListener('input', renderGallery);
 $('#gallery-filter').addEventListener('change', renderGallery);
 
+// 图库视图切换
+let galleryViewMode = 'grid';
+const galleryEl = $('#gallery');
+$('#view-grid').addEventListener('click', () => {
+  galleryViewMode = 'grid';
+  galleryEl.classList.remove('masonry');
+  $('#view-grid').classList.add('active');
+  $('#view-masonry').classList.remove('active');
+});
+$('#view-masonry').addEventListener('click', () => {
+  galleryViewMode = 'masonry';
+  galleryEl.classList.add('masonry');
+  $('#view-masonry').classList.add('active');
+  $('#view-grid').classList.remove('active');
+});
+
 async function updateGalleryBadge() {
   const count = await Storage.count();
   $('#gallery-badge').textContent = count;
@@ -684,6 +713,8 @@ async function updateGalleryBadge() {
 function openSettings() {
   $('#settings-modal').classList.remove('hidden');
   $('#api-key-input').value = Client.getKey();
+  const dk = $('#deepseek-key-input');
+  if (dk) dk.value = getDeepSeekKey();
   refreshStorageInfo();
 }
 function closeSettings() { $('#settings-modal').classList.add('hidden'); }
@@ -749,6 +780,84 @@ function updateStatusUI() {
     status.classList.add('error');
     text.textContent = '需要配置 Key';
   }
+}
+
+// =======================
+// DeepSeek AI 扩写
+// =======================
+const DS_KEY_STORE = 'deepseek_key';
+function getDeepSeekKey() { return localStorage.getItem(DS_KEY_STORE) || ''; }
+function setDeepSeekKey(k) { k ? localStorage.setItem(DS_KEY_STORE, k) : localStorage.removeItem(DS_KEY_STORE); }
+
+$('#save-deepseek-key').addEventListener('click', () => {
+  const k = $('#deepseek-key-input').value.trim();
+  if (!k) return toast('请输入 DeepSeek API Key', 'error');
+  setDeepSeekKey(k);
+  toast('DeepSeek Key 已保存');
+});
+$('#clear-deepseek-key').addEventListener('click', () => {
+  setDeepSeekKey('');
+  $('#deepseek-key-input').value = '';
+  toast('DeepSeek Key 已清除');
+});
+
+const PROMPT_EXPERT_SYSTEM = `你是一位顶级的AI绘画提示词专家。用户会给你一段简短的描述，你需要将其扩写为一段高质量、细节丰富的英文提示词（prompt），适合用于 GPT-Image、Midjourney、DALL-E 等 AI 绘画模型。
+
+规则：
+1. 输出纯英文提示词，不要任何解释、标题或额外文字
+2. 用逗号分隔各个描述元素
+3. 按以下结构组织：主体描述 → 场景/环境 → 光照/氛围 → 风格/艺术家参考 → 画质/技术参数
+4. 包含具体的视觉细节：材质、颜色、光线方向、镜头参数
+5. 添加画质提升词：masterpiece, best quality, highly detailed, 8K, professional 等
+6. 如果用户用中文描述，理解其含义并翻译成精准的英文提示词
+7. 控制在 100-200 个英文单词以内`;
+
+const aiExpandBtn = $('#ai-expand-btn');
+if (aiExpandBtn) {
+  aiExpandBtn.addEventListener('click', async () => {
+    const ta = $('.panel.active textarea[name="prompt"]');
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) return toast('请先输入一些提示词', 'error');
+    const key = getDeepSeekKey();
+    if (!key) return toast('请先在设置中配置 DeepSeek API Key', 'error');
+
+    aiExpandBtn.classList.add('loading');
+    const orig = aiExpandBtn.innerHTML;
+    aiExpandBtn.innerHTML = `<svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2a10 10 0 010 20 10 10 0 010-20" stroke="currentColor" stroke-width="2" stroke-dasharray="31 31" stroke-linecap="round"/></svg> 扩写中...`;
+
+    try {
+      const res = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            { role: 'system', content: PROMPT_EXPERT_SYSTEM },
+            { role: 'user', content: text }
+          ],
+          max_tokens: 500,
+          temperature: 0.8
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const expanded = data.choices?.[0]?.message?.content?.trim();
+      if (!expanded) throw new Error('AI 返回为空');
+      ta.value = expanded;
+      ta.dispatchEvent(new Event('input'));
+      ta.focus();
+      toast('提示词已扩写');
+    } catch (e) {
+      toast(`扩写失败: ${e.message}`, 'error');
+    } finally {
+      aiExpandBtn.classList.remove('loading');
+      aiExpandBtn.innerHTML = orig;
+    }
+  });
 }
 
 // =======================

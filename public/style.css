@@ -1647,3 +1647,134 @@ main {
   .prompt-drawer-frame { max-height: 80vh; }
   .prompt-card { padding: var(--s-3); }
 }
+
+/* ============================================
+   AI 扩写按钮
+   ============================================ */
+.chip-ai {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: var(--success);
+  font-weight: 500;
+  gap: 4px;
+}
+.chip-ai:hover {
+  background: var(--success);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+.chip-ai.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================
+   关于卡片
+   ============================================ */
+.about-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+}
+.about-author {
+  font-size: 18px;
+  font-weight: 700;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.about-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.about-links {
+  display: flex;
+  gap: var(--s-3);
+  margin: var(--s-2) 0;
+}
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.about-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.about-link svg { flex-shrink: 0; }
+.about-license {
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+
+/* ============================================
+   图库瀑布流
+   ============================================ */
+.gallery.masonry {
+  columns: 4;
+  column-gap: var(--s-3);
+}
+.gallery.masonry .card {
+  break-inside: avoid;
+  margin-bottom: var(--s-3);
+}
+.gallery.masonry .card img {
+  aspect-ratio: auto;
+}
+@media (max-width: 1200px) {
+  .gallery.masonry { columns: 3; }
+}
+@media (max-width: 700px) {
+  .gallery.masonry { columns: 2; }
+}
+@media (max-width: 400px) {
+  .gallery.masonry { columns: 2; }
+}
+
+.gallery-view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-elev);
+  padding: 3px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+}
+.gallery-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.gallery-view-btn:hover { color: var(--text); }
+.gallery-view-btn.active {
+  background: var(--grad-soft);
+  color: var(--accent);
+}

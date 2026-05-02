@@ -32,7 +32,7 @@
       </div>
       <div class="brand-text">
         <h1>AI 画图工坊</h1>
-        <span class="brand-sub">由 pearapi.ai 驱动</span>
+        <span class="brand-sub">by 金陵易何</span>
       </div>
     </div>
 
@@ -106,6 +106,10 @@
                 <button type="button" class="chip chip-accent" id="prompt-lib-btn">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                   灵感
+                </button>
+                <button type="button" class="chip chip-ai" id="ai-expand-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                  AI扩写
                 </button>
               </div>
             </label>
@@ -328,6 +332,14 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             刷新
           </button>
+          <div class="gallery-view-toggle">
+            <button class="gallery-view-btn active" id="view-grid" title="网格视图">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button class="gallery-view-btn" id="view-masonry" title="瀑布流视图">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="5" height="10" rx="1" stroke="currentColor" stroke-width="2"/><rect x="10" y="3" width="5" height="6" rx="1" stroke="currentColor" stroke-width="2"/><rect x="17" y="3" width="4" height="14" rx="1" stroke="currentColor" stroke-width="2"/><rect x="3" y="15" width="5" height="6" rx="1" stroke="currentColor" stroke-width="2"/><rect x="10" y="11" width="5" height="10" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+          </div>
         </div>
       </div>
       <div class="gallery" id="gallery"></div>
@@ -416,9 +428,40 @@
         </div>
 
         <div class="settings-section">
+          <label class="field">
+            <span class="field-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2a10 10 0 0110 10 10 10 0 01-10 10A10 10 0 012 12 10 10 0 0112 2zm0 2a8 8 0 100 16 8 8 0 000-16zm-1 3h2v4h3l-4 4-4-4h3V7z" fill="currentColor"/></svg>
+              DeepSeek API Key
+              <span class="mode-tag">AI 扩写</span>
+            </span>
+            <input type="password" id="deepseek-key-input" placeholder="sk-..." autocomplete="off" />
+            <p class="muted small">用于 AI 智能扩写提示词。也可填写其他兼容 OpenAI 格式的 API Key。</p>
+          </label>
+          <div class="settings-actions">
+            <button class="primary" id="save-deepseek-key">保存</button>
+            <button class="ghost" id="clear-deepseek-key">清除</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <span class="section-title">PWA</span>
           <p class="muted small" id="pwa-info">在手机 Chrome 打开本页，菜单 → 添加到主屏幕，即可像 APP 一样使用。</p>
           <button class="primary hidden" id="install-btn">📲 安装到主屏幕</button>
+        </div>
+
+        <div class="settings-section">
+          <span class="section-title">关于</span>
+          <div class="about-card">
+            <div class="about-author">金陵易何</div>
+            <div class="about-desc">开源 AI 图像生成与编辑工具</div>
+            <div class="about-links">
+              <a href="https://github.com/Cunninger/MyImage" target="_blank" rel="noopener" class="about-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                GitHub
+              </a>
+            </div>
+            <div class="about-license">GPL-3.0 License</div>
+          </div>
         </div>
       </div>
     </div>

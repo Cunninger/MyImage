@@ -1,2 +1,4 @@
 /build/*
 !/build/.npmkeep
+*.keystore
+keystore.properties
