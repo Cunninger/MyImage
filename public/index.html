@@ -168,7 +168,7 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span></p>
+                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
                 <p class="muted small">支持 JPG / PNG / WEBP，单张不超过 25MB</p>
               </div>
               <div class="dropzone-files" id="files-generate"></div>
@@ -243,7 +243,7 @@
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span></p>
+                <p><strong>拖拽图片到这里</strong>，或 <span class="link">点击选择</span><span class="link camera-link" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/></svg>相机</span></p>
               </div>
               <div class="dropzone-files" id="files-edit"></div>
             </div>
@@ -489,6 +489,31 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 相机/相册底部弹层（仅 Capacitor 原生平台显示） -->
+  <div class="action-sheet" id="camera-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="camera-sheet-title">
+    <div class="action-sheet-backdrop" data-action="cancel"></div>
+    <div class="action-sheet-panel">
+      <div class="action-sheet-handle"></div>
+      <h3 class="action-sheet-title" id="camera-sheet-title">添加参考图</h3>
+      <button type="button" class="action-sheet-item" data-action="camera">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>拍照</span>
+      </button>
+      <button type="button" class="action-sheet-item" data-action="gallery">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+          <circle cx="9" cy="9" r="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>从相册</span>
+      </button>
+      <button type="button" class="action-sheet-item cancel" data-action="cancel">取消</button>
     </div>
   </div>
 

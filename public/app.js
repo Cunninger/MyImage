@@ -356,6 +356,33 @@ class FileBucket {
         toast(`从剪贴板添加了 ${imgs.length} 张图片`);
       }
     });
+    this.zone.querySelector('.camera-link')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openCameraSheet();
+    });
+  }
+
+  openCameraSheet() {
+    const remaining = this.max - this.files.length;
+    if (remaining <= 0) {
+      toast(`最多 ${this.max} 张图片`, 'error');
+      return;
+    }
+    showCameraSheet(async (action) => {
+      try {
+        if (action === 'camera') {
+          const file = await takePhotoToFile();
+          if (file) this.add([file]);
+        } else if (action === 'gallery') {
+          const files = await pickFromGalleryToFiles(remaining);
+          if (files.length) this.add(files);
+        }
+      } catch (err) {
+        if (isCameraCancel(err)) return;
+        console.error('[camera]', err);
+        toast(err?.message || '相机调用失败', 'error');
+      }
+    });
   }
 
   add(files) {
@@ -402,6 +429,70 @@ class FileBucket {
 
 const generateFiles = new FileBucket($('#dropzone-generate'), $('#file-generate'), $('#files-generate'), 4);
 const editFiles = new FileBucket($('#dropzone-edit'), $('#file-edit'), $('#files-edit'), 4);
+
+// =======================
+// 相机/相册（仅 Capacitor 原生平台）
+// =======================
+if (isNative) {
+  document.querySelectorAll('.camera-link').forEach(el => el.removeAttribute('hidden'));
+}
+
+function isCameraCancel(err) {
+  if (!err) return false;
+  const code = err.code || '';
+  if (code === 'OS-PLUG-CAMR-0006' || code === 'OS-PLUG-CAMR-0020') return true;
+  const msg = (err.message || err.errorMessage || '').toLowerCase();
+  return msg.includes('cancel') || msg.includes('user denied') || msg.includes('user cancelled');
+}
+
+async function takePhotoToFile() {
+  const Camera = window.Capacitor?.Plugins?.Camera;
+  if (!Camera) throw new Error('Camera 插件不可用');
+  const photo = await Camera.takePhoto({ quality: 90, includeMetadata: false });
+  const path = photo.webPath || photo.path;
+  if (!path) throw new Error('未能获取照片路径');
+  const blob = await (await fetch(path)).blob();
+  return new File([blob], `photo-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+}
+
+async function pickFromGalleryToFiles(maxCount) {
+  const Camera = window.Capacitor?.Plugins?.Camera;
+  if (!Camera) throw new Error('Camera 插件不可用');
+  const { results = [] } = await Camera.chooseFromGallery({ quality: 90, limit: maxCount });
+  const files = [];
+  for (const r of results) {
+    const path = r.webPath || r.path;
+    if (!path) continue;
+    const blob = await (await fetch(path)).blob();
+    files.push(new File([blob], `gallery-${Date.now()}-${files.length}.jpg`, { type: blob.type || 'image/jpeg' }));
+  }
+  return files;
+}
+
+function showCameraSheet(onChoose) {
+  const sheet = document.getElementById('camera-sheet');
+  if (!sheet) { onChoose('cancel'); return; }
+  sheet.hidden = false;
+  // 触发入场动画
+  requestAnimationFrame(() => sheet.classList.add('open'));
+  const close = () => {
+    sheet.classList.remove('open');
+    setTimeout(() => { sheet.hidden = true; }, 200);
+    sheet.removeEventListener('click', onClick);
+    document.removeEventListener('keydown', onKey);
+  };
+  const onClick = (e) => {
+    const action = e.target.closest('[data-action]')?.dataset?.action;
+    if (!action) return;
+    close();
+    onChoose(action);
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') { close(); onChoose('cancel'); }
+  };
+  sheet.addEventListener('click', onClick);
+  document.addEventListener('keydown', onKey);
+}
 
 // =======================
 // 卡片渲染
