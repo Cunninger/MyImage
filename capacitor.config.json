@@ -1,0 +1,10 @@
+{
+  "appId": "com.cunninger.gptimage",
+  "appName": "AI 画图工坊",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
