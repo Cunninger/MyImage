@@ -46,6 +46,25 @@ function blobToBase64(blob) {
   });
 }
 
+// 生成完成提示音
+function playDoneSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.12);
+      osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+    });
+  } catch (e) {}
+}
+
 const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 const FS = isNative ? Capacitor.Plugins.Filesystem : null;
 const SharePlugin = isNative ? Capacitor.Plugins.Share : null;
@@ -213,11 +232,23 @@ if (promptInput && promptCount) {
   promptInput.addEventListener('input', update);
   update();
 }
-$$('.chip').forEach(chip => {
+$$('.chip[data-tag]').forEach(chip => {
   chip.addEventListener('click', () => {
     if (!promptInput) return;
-    const v = promptInput.value.trim();
-    promptInput.value = v ? `${v}, ${chip.dataset.tag}` : chip.dataset.tag;
+    const tag = chip.dataset.tag;
+    const v = promptInput.value;
+    if (chip.classList.contains('active')) {
+      // 移除标签
+      promptInput.value = v.replace(new RegExp(',?\\s*' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ',?\\s*'), (m, p1) => {
+        return m.startsWith(',') && m.endsWith(',') ? ', ' : '';
+      }).replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
+      chip.classList.remove('active');
+    } else {
+      // 添加标签
+      const trimmed = promptInput.value.trim();
+      promptInput.value = trimmed ? `${trimmed}, ${tag}` : tag;
+      chip.classList.add('active');
+    }
     promptInput.dispatchEvent(new Event('input'));
     promptInput.focus();
   });
@@ -337,44 +368,24 @@ function buildCard(item, container, prepend = true) {
       </div>
     </div>
   `;
-  // 触摸设备：单击切换 overlay，双击图片打开大图
-  if (isTouch) {
-    let lastTap = 0;
-    card.addEventListener('click', e => {
-      if (card.classList.contains('overlay-active')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      card.classList.add('overlay-active');
-    });
-    card.querySelector('img').addEventListener('click', e => {
-      const now = Date.now();
-      if (now - lastTap < 300) {
-        e.stopPropagation();
-        card.classList.remove('overlay-active');
-        openModal(item);
-        lastTap = 0;
-      } else if (card.classList.contains('overlay-active')) {
-        e.stopPropagation();
-        card.classList.remove('overlay-active');
+  // 双击查看大图（触摸和桌面统一逻辑）
+  let lastTapTime = 0;
+  card.addEventListener('click', e => {
+    if (e.target.closest('.card-actions button')) return;
+    const now = Date.now();
+    if (now - lastTapTime < 300) {
+      lastTapTime = 0;
+      if (isTouch) card.classList.remove('overlay-active');
+      openModal(item);
+    } else if (isTouch) {
+      const wasActive = card.classList.contains('overlay-active');
+      card.classList.toggle('overlay-active');
+      if (wasActive && !card.classList.contains('overlay-active')) {
+        // 点击关闭 overlay，不更新 lastTapTime，让快速双击仍可触发
       }
-      lastTap = now;
-    });
-    card.querySelector('.card-overlay').addEventListener('click', () => {
-      card.classList.remove('overlay-active');
-    });
-  } else {
-    // 桌面端：双击图片查看大图
-    let clickTimer = null;
-    card.querySelector('img').addEventListener('click', e => {
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
-        openModal(item);
-      } else {
-        clickTimer = setTimeout(() => { clickTimer = null; }, 300);
-      }
-    });
-  }
+    }
+    lastTapTime = now;
+  });
   card.querySelector('.action-download').addEventListener('click', e => { e.stopPropagation(); downloadImage(item); });
   card.querySelector('.action-copy').addEventListener('click', e => {
     e.stopPropagation();
@@ -584,6 +595,7 @@ async function runTask({ type, opts, container }) {
     cards.forEach(c => c.remove());
     items.forEach(it => buildCard(it, container));
     toast(`#${taskId} 完成：${(opts.prompt || '').slice(0, 24) || '已生成'} (${items.length} 张)`);
+    playDoneSound();
     updateGalleryBadge();
   } catch (err) {
     cards.forEach(c => {
@@ -808,6 +820,39 @@ $('#clear-deepseek-key').addEventListener('click', () => {
   setDeepSeekKey('');
   $('#deepseek-key-input').value = '';
   toast('DeepSeek Key 已清除');
+});
+
+// 配置导入导出
+$('#export-config').addEventListener('click', () => {
+  const config = {
+    pearapi_key: Client.getKey(),
+    deepseek_key: getDeepSeekKey(),
+  };
+  if (!config.pearapi_key && !config.deepseek_key) {
+    return toast('没有可导出的配置', 'error');
+  }
+  navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
+    toast('配置已复制到剪贴板');
+  }).catch(() => toast('复制失败', 'error'));
+});
+
+$('#import-config').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    const config = JSON.parse(text);
+    if (config.pearapi_key) {
+      Client.setKey(config.pearapi_key);
+      $('#api-key-input').value = config.pearapi_key;
+    }
+    if (config.deepseek_key) {
+      setDeepSeekKey(config.deepseek_key);
+      $('#deepseek-key-input').value = config.deepseek_key;
+    }
+    updateStatusUI();
+    toast('配置导入成功');
+  } catch (e) {
+    toast('导入失败：请确保剪贴板中有有效的 JSON 配置', 'error');
+  }
 });
 
 const PROMPT_EXPERT_SYSTEM = `你是一位顶级的AI绘画提示词专家。用户会给你一段简短的描述，你需要将其扩写为一段高质量、细节丰富的英文提示词（prompt），适合用于 GPT-Image、Midjourney、DALL-E 等 AI 绘画模型。

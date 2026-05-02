@@ -159,7 +159,7 @@ body::before {
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
-.logo-mark svg { width: 24px; height: 24px; }
+.logo-mark svg, .logo-mark img { width: 24px; height: 24px; border-radius: 4px; }
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand h1 {
@@ -447,6 +447,12 @@ main {
   background: var(--grad-soft);
   border-color: var(--accent);
   color: var(--text);
+}
+.chip.active {
+  background: var(--grad);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* 比例选择 */
