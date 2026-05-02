@@ -1,16 +1,14 @@
-const CACHE = 'gpt-image-v6';
+const CACHE = 'gpt-image-v7';
 const ASSETS = [
   '/',
   '/index.html',
-  '/style.css',
-  '/app.js',
-  '/storage.js',
-  '/manifest.json',
+  '/style.css?v=2.0',
+  '/app.js?v=2.0',
+  '/storage.js?v=2.0',
   '/icons/icon.svg',
 ];
 
 self.addEventListener('install', (e) => {
-  // 先清空所有旧缓存再安装新版本
   e.waitUntil(
     caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() =>
       caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {}))
@@ -32,7 +30,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
   e.respondWith(
-    caches.match(e.request).then(cached =>
+    caches.match(e.request, { ignoreSearch: true }).then(cached =>
       cached || fetch(e.request).then(res => {
         if (res.ok && url.origin === location.origin) {
           const clone = res.clone();
