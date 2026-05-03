@@ -669,7 +669,7 @@ function buildCard(item, container, prepend = true) {
     e.stopPropagation();
     runTask({
       type: item.type || 'generate',
-      opts: { prompt: item.prompt || '', model: item.model || 'gpt-image-2-4k', aspectRatio: item.aspect_ratio || '', n: 1, refFiles: [], refUrls: [] },
+      opts: { prompt: item.prompt || '', model: item.model || 'gpt-image-2', aspectRatio: item.aspect_ratio || '', n: 1, refFiles: [], refUrls: [] },
       container: $('#results-generate'),
     });
     toast('已重新生成', 'info');
