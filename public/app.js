@@ -1765,6 +1765,10 @@ setTimeout(() => checkUpdate(false), 3000);
   let sbSourceBlob = null;
   let sbRows = 3;
   let sbCols = 3;
+  let sbXLines = [1/3, 2/3];
+  let sbYLines = [1/3, 2/3];
+  let sbCanvasScale = 1;
+  let sbDrag = null;
   let sbSegments = [];
   let sbGalleryData = [];
 
@@ -1847,31 +1851,41 @@ setTimeout(() => checkUpdate(false), 3000);
     const scale = Math.min(maxW / img.width, maxH / img.height, 1);
     const w = Math.round(img.width * scale);
     const h = Math.round(img.height * scale);
+    sbCanvasScale = scale;
     canvas.width = w;
     canvas.height = h;
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    const isDragging = sbDrag !== null;
+
+    ctx.strokeStyle = isDragging ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.75)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 4]);
-    for (let c = 1; c < sbCols; c++) {
-      const x = Math.round(w * c / sbCols);
+    sbXLines.forEach((p, i) => {
+      const x = Math.round(w * p);
+      ctx.strokeStyle = (isDragging && sbDrag?.type === 'x' && sbDrag?.index === i)
+        ? 'rgba(167,139,250,0.95)' : 'rgba(255,255,255,0.75)';
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    }
-    for (let r = 1; r < sbRows; r++) {
-      const y = Math.round(h * r / sbRows);
+    });
+    sbYLines.forEach((p, i) => {
+      const y = Math.round(h * p);
+      ctx.strokeStyle = (isDragging && sbDrag?.type === 'y' && sbDrag?.index === i)
+        ? 'rgba(167,139,250,0.95)' : 'rgba(255,255,255,0.75)';
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
+    });
     ctx.setLineDash([]);
 
     const labelSize = Math.max(10, Math.min(14, w / sbCols / 5));
     ctx.font = `bold ${labelSize}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+    const xBounds = [0, ...sbXLines, 1];
+    const yBounds = [0, ...sbYLines, 1];
     for (let r = 0; r < sbRows; r++) {
       for (let c = 0; c < sbCols; c++) {
-        const cx = w * (c + 0.5) / sbCols;
-        const cy = h * (r + 0.5) / sbRows;
+        const cx = w * (xBounds[c] + xBounds[c+1]) / 2;
+        const cy = h * (yBounds[r] + yBounds[r+1]) / 2;
         const label = `${r+1}-${c+1}`;
         const tw = ctx.measureText(label).width + 8;
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -1883,6 +1897,112 @@ setTimeout(() => checkUpdate(false), 3000);
         ctx.fillText(label, cx, cy);
       }
     }
+
+    // Draw drag handles at line intersections
+    sbXLines.forEach((xp, xi) => {
+      sbYLines.forEach((yp, yi) => {
+        const hx = w * xp;
+        const hy = h * yp;
+        const isActive = isDragging && ((sbDrag.type === 'x' && sbDrag.index === xi) || (sbDrag.type === 'y' && sbDrag.index === yi));
+        ctx.fillStyle = isActive ? '#a78bfa' : 'rgba(255,255,255,0.85)';
+        ctx.beginPath();
+        ctx.arc(hx, hy, isActive ? 7 : 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    });
+
+    // Draw edge handles on vertical lines (mid-height)
+    sbXLines.forEach((xp, xi) => {
+      const hx = w * xp;
+      const hy = h / 2;
+      const isActive = isDragging && sbDrag.type === 'x' && sbDrag.index === xi;
+      ctx.fillStyle = isActive ? '#a78bfa' : 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(hx, hy, isActive ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Draw edge handles on horizontal lines (mid-width)
+    sbYLines.forEach((yp, yi) => {
+      const hx = w / 2;
+      const hy = h * yp;
+      const isActive = isDragging && sbDrag.type === 'y' && sbDrag.index === yi;
+      ctx.fillStyle = isActive ? '#a78bfa' : 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(hx, hy, isActive ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x: cx, y: cy };
+  }
+
+  function findLineNear(px, py, threshold = 14) {
+    const w = canvas.width, h = canvas.height;
+    for (let i = 0; i < sbXLines.length; i++) {
+      const x = w * sbXLines[i];
+      if (Math.abs(px - x) <= threshold && py >= 0 && py <= h) return { type: 'x', index: i };
+    }
+    for (let i = 0; i < sbYLines.length; i++) {
+      const y = h * sbYLines[i];
+      if (Math.abs(py - y) <= threshold && px >= 0 && px <= w) return { type: 'y', index: i };
+    }
+    return null;
+  }
+
+  function onPointerDown(e) {
+    if (!sbSourceImage) return;
+    const pos = getCanvasPos(e);
+    const hit = findLineNear(pos.x, pos.y);
+    if (hit) {
+      e.preventDefault();
+      sbDrag = hit;
+      canvas.style.cursor = hit.type === 'x' ? 'col-resize' : 'row-resize';
+      drawCanvas();
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!sbDrag || !sbSourceImage) return;
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    const w = canvas.width, h = canvas.height;
+    const minGap = 0.03;
+    if (sbDrag.type === 'x') {
+      let p = pos.x / w;
+      const prev = sbDrag.index > 0 ? sbXLines[sbDrag.index - 1] : 0;
+      const next = sbDrag.index < sbXLines.length - 1 ? sbXLines[sbDrag.index + 1] : 1;
+      p = Math.max(prev + minGap, Math.min(next - minGap, p));
+      sbXLines[sbDrag.index] = p;
+    } else {
+      let p = pos.y / h;
+      const prev = sbDrag.index > 0 ? sbYLines[sbDrag.index - 1] : 0;
+      const next = sbDrag.index < sbYLines.length - 1 ? sbYLines[sbDrag.index + 1] : 1;
+      p = Math.max(prev + minGap, Math.min(next - minGap, p));
+      sbYLines[sbDrag.index] = p;
+    }
+    drawCanvas();
+  }
+
+  function onPointerUp(e) {
+    if (!sbDrag) return;
+    sbDrag = null;
+    canvas.style.cursor = '';
+    drawCanvas();
+  }
+
+  function resetEvenLines() {
+    sbXLines = [];
+    sbYLines = [];
+    for (let c = 1; c < sbCols; c++) sbXLines.push(c / sbCols);
+    for (let r = 1; r < sbRows; r++) sbYLines.push(r / sbRows);
   }
 
   function setGrid(rows, cols) {
@@ -1893,6 +2013,7 @@ setTimeout(() => checkUpdate(false), 3000);
     $$('.sb-preset').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.rows) === sbRows && parseInt(btn.dataset.cols) === sbCols);
     });
+    resetEvenLines();
     drawCanvas();
   }
 
@@ -1900,15 +2021,19 @@ setTimeout(() => checkUpdate(false), 3000);
     if (!sbSourceImage) return;
     sbSegments = [];
     const img = sbSourceImage;
-    const cellW = img.width / sbCols;
-    const cellH = img.height / sbRows;
+    const xBounds = [0, ...sbXLines.map(p => Math.round(p * img.width)), img.width];
+    const yBounds = [0, ...sbYLines.map(p => Math.round(p * img.height)), img.height];
     for (let r = 0; r < sbRows; r++) {
       for (let c = 0; c < sbCols; c++) {
+        const sx = xBounds[c];
+        const sy = yBounds[r];
+        const sw = xBounds[c + 1] - sx;
+        const sh = yBounds[r + 1] - sy;
         const tmp = document.createElement('canvas');
-        tmp.width = Math.round(cellW);
-        tmp.height = Math.round(cellH);
+        tmp.width = sw;
+        tmp.height = sh;
         const tctx = tmp.getContext('2d');
-        tctx.drawImage(img, Math.round(c * cellW), Math.round(r * cellH), Math.round(cellW), Math.round(cellH), 0, 0, tmp.width, tmp.height);
+        tctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
         sbSegments.push({ dataUrl: tmp.toDataURL('image/png'), row: r + 1, col: c + 1 });
       }
     }
@@ -2013,6 +2138,7 @@ setTimeout(() => checkUpdate(false), 3000);
   $('#sb-cols-minus')?.addEventListener('click', () => setGrid(sbRows, sbCols - 1));
 
   $('#sb-split-btn')?.addEventListener('click', splitImage);
+  $('#sb-reset-lines')?.addEventListener('click', () => { resetEvenLines(); drawCanvas(); });
 
   $('#sb-back-select')?.addEventListener('click', () => {
     showStep(stepSelect); sbSourceImage = null; sbSourceBlob = null;
@@ -2029,6 +2155,16 @@ setTimeout(() => checkUpdate(false), 3000);
   document.addEventListener('storyboard:select', e => {
     if (e.detail?.item) selectImageFromItem(e.detail.item);
   });
+
+  // Canvas drag events
+  if (canvas) {
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('mouseup', onPointerUp);
+    window.addEventListener('touchend', onPointerUp);
+  }
 
   window.addEventListener('resize', () => {
     if (stepConfig && !stepConfig.classList.contains('hidden') && sbSourceImage) drawCanvas();
