@@ -206,8 +206,14 @@ const Client = {
         createdAt: Date.now(),
         tags: [],
       };
-      await Storage.save(record);
-      items.push(record);
+      try {
+        await Storage.save(record);
+        items.push(record);
+      } catch (e) {
+        console.error('保存到本地失败:', e);
+        // 即使存失败，也保留一个只有远程URL的记录，避免用户完全看不到
+        items.push({ ...record, blob: undefined, remoteUrl: item.url });
+      }
     }
     return items;
   },
@@ -571,6 +577,7 @@ function buildCard(item, container, prepend = true) {
           <button class="action-regen" title="重新生成"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button class="action-toedit" title="以此图编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button class="action-download" title="下载"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="action-split" title="分镜切割"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/></svg></button>
           <button class="action-prompt" title="复制提示词"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6" stroke="currentColor" stroke-width="2"/></svg></button>
           <button class="action-delete danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
         </div>
@@ -639,6 +646,11 @@ function buildCard(item, container, prepend = true) {
     const editPrompt = $('#form-edit textarea[name="prompt"]');
     if (editPrompt && item.prompt) editPrompt.value = item.prompt;
     toast('已切换到图生图');
+  });
+  card.querySelector('.action-split')?.addEventListener('click', e => {
+    e.stopPropagation();
+    switchTab('storyboard');
+    document.dispatchEvent(new CustomEvent('storyboard:select', { detail: { item } }));
   });
   card.querySelector('.action-prompt').addEventListener('click', e => {
     e.stopPropagation();
@@ -1481,7 +1493,7 @@ document.addEventListener('keydown', e => {
   }
   if ((e.metaKey || e.ctrlKey) && /^[1-4]$/.test(e.key)) {
     e.preventDefault();
-    const tabs = ['generate', 'edit', 'gallery', 'settings'];
+    const tabs = ['generate', 'edit', 'gallery', 'storyboard'];
     switchTab(tabs[parseInt(e.key, 10) - 1]);
   }
 });
@@ -1501,6 +1513,16 @@ document.addEventListener('keydown', e => {
     setTimeout(() => openSettings(), 500);
   }
   updateGalleryBadge();
+
+  // 检测本地存储可用性
+  try {
+    const support = await Storage.isSupported();
+    if (!support.ok) {
+      toast(`存储警告: ${support.reason}`, 'error');
+    }
+  } catch (e) {
+    console.warn('存储检测失败:', e);
+  }
 })();
 
 // 提示词历史按钮
@@ -1734,3 +1756,281 @@ $('#check-update-btn')?.addEventListener('click', async () => {
 
 // 启动时检查更新（延迟 3 秒，避免阻塞首屏）
 setTimeout(() => checkUpdate(false), 3000);
+
+// =======================
+// 分镜切割 (Storyboard)
+// =======================
+(function initStoryboard() {
+  let sbSourceImage = null;
+  let sbSourceBlob = null;
+  let sbRows = 3;
+  let sbCols = 3;
+  let sbSegments = [];
+  let sbGalleryData = [];
+
+  const stepSelect = $('#sb-step-select');
+  const stepConfig = $('#sb-step-config');
+  const stepResult = $('#sb-step-result');
+  const canvas = $('#sb-canvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  const recentGrid = $('#sb-recent-grid');
+  const pickerModal = $('#sb-picker-modal');
+  const pickerGrid = $('#sb-picker-grid');
+  const pickerSearchInput = $('#sb-picker-search-input');
+  const segmentsContainer = $('#sb-segments');
+
+  function showStep(stepEl) {
+    [stepSelect, stepConfig, stepResult].forEach(s => s?.classList.add('hidden'));
+    stepEl?.classList.remove('hidden');
+  }
+
+  async function loadRecentImages() {
+    try {
+      const items = await Storage.list();
+      const recent = items.slice(0, 12);
+      sbGalleryData = items;
+      if (!recentGrid) return;
+      recentGrid.innerHTML = '';
+      if (recent.length === 0) {
+        recentGrid.innerHTML = '<p class="muted small">暂无图片，去生成一张吧</p>';
+        return;
+      }
+      recent.forEach(item => {
+        const thumb = document.createElement('div');
+        thumb.className = 'sb-thumb';
+        const src = Client.imgSrc(item);
+        thumb.innerHTML = `<img src="${src}" alt="" loading="lazy" />`;
+        thumb.addEventListener('click', () => selectImageFromItem(item));
+        recentGrid.appendChild(thumb);
+      });
+    } catch (e) {
+      console.error('加载最近图片失败', e);
+    }
+  }
+
+  async function selectImageFromItem(item) {
+    let blob = item.blob;
+    if (!blob && item.remoteUrl) {
+      try { const r = await fetch(item.remoteUrl); blob = await r.blob(); } catch {}
+    }
+    if (!blob) { toast('无法获取图片', 'error'); return; }
+    sbSourceBlob = blob;
+    loadImageToCanvas(blob);
+    showStep(stepConfig);
+  }
+
+  function selectImageFromFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    sbSourceBlob = file;
+    loadImageToCanvas(file);
+    showStep(stepConfig);
+  }
+
+  function loadImageToCanvas(blob) {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      sbSourceImage = img;
+      drawCanvas();
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { toast('图片加载失败', 'error'); URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+
+  function drawCanvas() {
+    if (!ctx || !sbSourceImage) return;
+    const img = sbSourceImage;
+    const wrap = canvas.parentElement;
+    const maxW = wrap ? wrap.clientWidth : 400;
+    const maxH = window.innerHeight * 0.5;
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    for (let c = 1; c < sbCols; c++) {
+      const x = Math.round(w * c / sbCols);
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let r = 1; r < sbRows; r++) {
+      const y = Math.round(h * r / sbRows);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const labelSize = Math.max(10, Math.min(14, w / sbCols / 5));
+    ctx.font = `bold ${labelSize}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let r = 0; r < sbRows; r++) {
+      for (let c = 0; c < sbCols; c++) {
+        const cx = w * (c + 0.5) / sbCols;
+        const cy = h * (r + 0.5) / sbRows;
+        const label = `${r+1}-${c+1}`;
+        const tw = ctx.measureText(label).width + 8;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath();
+        if (ctx.roundRect) { ctx.roundRect(cx - tw/2, cy - 9, tw, 18, 4); }
+        else { ctx.rect(cx - tw/2, cy - 9, tw, 18); }
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, cx, cy);
+      }
+    }
+  }
+
+  function setGrid(rows, cols) {
+    sbRows = Math.max(1, Math.min(10, rows));
+    sbCols = Math.max(1, Math.min(10, cols));
+    $('#sb-rows-display') && ($('#sb-rows-display').textContent = sbRows);
+    $('#sb-cols-display') && ($('#sb-cols-display').textContent = sbCols);
+    $$('.sb-preset').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.rows) === sbRows && parseInt(btn.dataset.cols) === sbCols);
+    });
+    drawCanvas();
+  }
+
+  function splitImage() {
+    if (!sbSourceImage) return;
+    sbSegments = [];
+    const img = sbSourceImage;
+    const cellW = img.width / sbCols;
+    const cellH = img.height / sbRows;
+    for (let r = 0; r < sbRows; r++) {
+      for (let c = 0; c < sbCols; c++) {
+        const tmp = document.createElement('canvas');
+        tmp.width = Math.round(cellW);
+        tmp.height = Math.round(cellH);
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(img, Math.round(c * cellW), Math.round(r * cellH), Math.round(cellW), Math.round(cellH), 0, 0, tmp.width, tmp.height);
+        sbSegments.push({ dataUrl: tmp.toDataURL('image/png'), row: r + 1, col: c + 1 });
+      }
+    }
+    renderSegments();
+    showStep(stepResult);
+  }
+
+  function renderSegments() {
+    if (!segmentsContainer) return;
+    segmentsContainer.innerHTML = '';
+    segmentsContainer.style.gridTemplateColumns = `repeat(${Math.min(sbCols, 4)}, 1fr)`;
+    sbSegments.forEach((seg, i) => {
+      const el = document.createElement('div');
+      el.className = 'sb-segment';
+      el.innerHTML = `
+        <img src="${seg.dataUrl}" alt="切片 ${seg.row}-${seg.col}" />
+        <div class="sb-segment-label">${seg.row}-${seg.col}</div>
+        <button class="sb-segment-dl" type="button" data-index="${i}" title="下载">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      `;
+      el.querySelector('.sb-segment-dl').addEventListener('click', e => { e.stopPropagation(); downloadSegment(i); });
+      segmentsContainer.appendChild(el);
+    });
+  }
+
+  function downloadSegment(index) {
+    const seg = sbSegments[index];
+    if (!seg) return;
+    const a = document.createElement('a');
+    a.href = seg.dataUrl;
+    a.download = `storyboard-${seg.row}-${seg.col}.png`;
+    a.click();
+  }
+
+  function downloadAllSegments() {
+    if (!sbSegments.length) return;
+    toast(`正在下载 ${sbSegments.length} 张切片...`, 'info');
+    sbSegments.forEach((seg, i) => { setTimeout(() => downloadSegment(i), i * 200); });
+  }
+
+  function openGalleryPicker() {
+    loadGalleryPicker();
+    pickerModal?.classList.remove('hidden');
+  }
+  function closeGalleryPicker() {
+    pickerModal?.classList.add('hidden');
+  }
+
+  async function loadGalleryPicker(filter = '') {
+    if (!sbGalleryData.length) {
+      try { sbGalleryData = await Storage.list(); } catch { sbGalleryData = []; }
+    }
+    let list = sbGalleryData;
+    if (filter) {
+      const q = filter.toLowerCase();
+      list = list.filter(x => (x.prompt || '').toLowerCase().includes(q));
+    }
+    if (!pickerGrid) return;
+    pickerGrid.innerHTML = '';
+    if (!list.length) {
+      pickerGrid.innerHTML = '<p class="muted small" style="grid-column:1/-1;text-align:center;padding:40px 0;">没有找到图片</p>';
+      return;
+    }
+    list.forEach(item => {
+      const thumb = document.createElement('div');
+      thumb.className = 'sb-thumb sb-thumb-picker';
+      const src = Client.imgSrc(item);
+      thumb.innerHTML = `<img src="${src}" alt="" loading="lazy" /><div class="sb-thumb-prompt">${escapeHtml((item.prompt || '').slice(0, 40))}</div>`;
+      thumb.addEventListener('click', async () => { closeGalleryPicker(); await selectImageFromItem(item); });
+      pickerGrid.appendChild(thumb);
+    });
+  }
+
+  // Panel activation
+  const sbPanel = $('#panel-storyboard');
+  if (sbPanel) {
+    const observer = new MutationObserver(() => {
+      if (sbPanel.classList.contains('active') && stepSelect && !stepSelect.classList.contains('hidden') && recentGrid && !recentGrid.children.length) {
+        loadRecentImages();
+      }
+    });
+    observer.observe(sbPanel, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // Events
+  $('#sb-from-gallery')?.addEventListener('click', openGalleryPicker);
+  $('#sb-from-upload')?.addEventListener('click', () => $('#sb-file-input')?.click());
+  $('#sb-file-input')?.addEventListener('change', e => { const file = e.target.files[0]; if (file) selectImageFromFile(file); e.target.value = ''; });
+
+  $('#sb-picker-close')?.addEventListener('click', closeGalleryPicker);
+  pickerModal?.querySelector('.modal-bg')?.addEventListener('click', closeGalleryPicker);
+  pickerSearchInput?.addEventListener('input', () => loadGalleryPicker(pickerSearchInput.value));
+
+  $$('.sb-preset').forEach(btn => {
+    btn.addEventListener('click', () => setGrid(parseInt(btn.dataset.rows), parseInt(btn.dataset.cols)));
+  });
+
+  $('#sb-rows-plus')?.addEventListener('click', () => setGrid(sbRows + 1, sbCols));
+  $('#sb-rows-minus')?.addEventListener('click', () => setGrid(sbRows - 1, sbCols));
+  $('#sb-cols-plus')?.addEventListener('click', () => setGrid(sbRows, sbCols + 1));
+  $('#sb-cols-minus')?.addEventListener('click', () => setGrid(sbRows, sbCols - 1));
+
+  $('#sb-split-btn')?.addEventListener('click', splitImage);
+
+  $('#sb-back-select')?.addEventListener('click', () => {
+    showStep(stepSelect); sbSourceImage = null; sbSourceBlob = null;
+  });
+  $('#sb-back-config')?.addEventListener('click', () => showStep(stepConfig));
+  $('#sb-new-image')?.addEventListener('click', () => {
+    sbSourceImage = null; sbSourceBlob = null; sbSegments = [];
+    if (segmentsContainer) segmentsContainer.innerHTML = '';
+    showStep(stepSelect);
+  });
+  $('#sb-download-all')?.addEventListener('click', downloadAllSegments);
+  $('#open-storyboard')?.addEventListener('click', () => switchTab('storyboard'));
+
+  document.addEventListener('storyboard:select', e => {
+    if (e.detail?.item) selectImageFromItem(e.detail.item);
+  });
+
+  window.addEventListener('resize', () => {
+    if (stepConfig && !stepConfig.classList.contains('hidden') && sbSourceImage) drawCanvas();
+  });
+})();

@@ -1,13 +1,22 @@
-/* IndexedDB 存储层 — 所有图片和元数据都存在手机本地 */
+/* IndexedDB 存储层 — 所有图片和元数据都存在本地 */
 
 const DB_NAME = 'gpt-image-store';
 const DB_VERSION = 3;
 const STORE = 'images';
 
 let dbPromise;
+let dbError = null;
+
+function checkIDB() {
+  if (!window.indexedDB) {
+    throw new Error('当前浏览器不支持 IndexedDB，图片无法持久保存。请通过 http://localhost:3000 访问，而非直接打开文件。');
+  }
+}
 
 function openDB() {
+  if (dbError) return Promise.reject(dbError);
   if (dbPromise) return dbPromise;
+  checkIDB();
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
@@ -25,7 +34,6 @@ function openDB() {
         if (!store.indexNames.contains('starred')) {
           store.createIndex('starred', 'starred', { unique: false });
         }
-        // 现有记录补默认 starred=0（false 不参与索引，故用 0/1 整数）
         store.openCursor().onsuccess = (ev) => {
           const c = ev.target.result;
           if (!c) return;
@@ -37,7 +45,6 @@ function openDB() {
         };
       }
       if (oldV < 3) {
-        // 现有记录补默认 tags 数组
         store.openCursor().onsuccess = (ev) => {
           const c = ev.target.result;
           if (!c) return;
@@ -50,110 +57,165 @@ function openDB() {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      dbError = req.error || new Error('IndexedDB 打开失败');
+      reject(dbError);
+    };
+    req.onblocked = () => {
+      dbError = new Error('IndexedDB 被其他页面阻塞，请关闭其他标签页后刷新');
+      reject(dbError);
+    };
   });
   return dbPromise;
 }
 
 async function tx(mode = 'readonly') {
-  const db = await openDB();
-  return db.transaction(STORE, mode).objectStore(STORE);
+  try {
+    const db = await openDB();
+    return db.transaction(STORE, mode).objectStore(STORE);
+  } catch (e) {
+    throw new Error(`存储访问失败: ${e.message}`);
+  }
 }
 
 const Storage = {
   async save(item) {
-    const store = await tx('readwrite');
-    return new Promise((resolve, reject) => {
-      const r = store.put(item);
-      r.onsuccess = () => resolve(item);
-      r.onerror = () => reject(r.error);
-    });
+    try {
+      const store = await tx('readwrite');
+      return new Promise((resolve, reject) => {
+        const r = store.put(item);
+        r.onsuccess = () => resolve(item);
+        r.onerror = () => reject(r.error);
+      });
+    } catch (e) {
+      throw new Error(`保存图片失败: ${e.message}`);
+    }
   },
 
   async list({ limit = 1000, offset = 0 } = {}) {
-    const store = await tx();
-    return new Promise((resolve, reject) => {
-      const items = [];
-      const idx = store.index('createdAt');
-      const cursor = idx.openCursor(null, 'prev');
-      let skipped = 0;
-      cursor.onsuccess = () => {
-        const c = cursor.result;
-        if (!c || items.length >= limit) return resolve(items);
-        if (skipped < offset) { skipped++; c.continue(); return; }
-        items.push(c.value);
-        c.continue();
-      };
-      cursor.onerror = () => reject(cursor.error);
-    });
+    try {
+      const store = await tx();
+      return new Promise((resolve, reject) => {
+        const items = [];
+        const idx = store.index('createdAt');
+        const cursor = idx.openCursor(null, 'prev');
+        let skipped = 0;
+        cursor.onsuccess = () => {
+          const c = cursor.result;
+          if (!c || items.length >= limit) return resolve(items);
+          if (skipped < offset) { skipped++; c.continue(); return; }
+          items.push(c.value);
+          c.continue();
+        };
+        cursor.onerror = () => reject(cursor.error);
+      });
+    } catch (e) {
+      throw new Error(`读取图库失败: ${e.message}`);
+    }
   },
 
   async count() {
-    const store = await tx();
-    return new Promise((resolve, reject) => {
-      const r = store.count();
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
+    try {
+      const store = await tx();
+      return new Promise((resolve, reject) => {
+        const r = store.count();
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    } catch (e) {
+      console.warn('Storage.count 失败:', e);
+      return 0;
+    }
   },
 
   async get(id) {
-    const store = await tx();
-    return new Promise((resolve, reject) => {
-      const r = store.get(id);
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
+    try {
+      const store = await tx();
+      return new Promise((resolve, reject) => {
+        const r = store.get(id);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    } catch (e) {
+      throw new Error(`读取记录失败: ${e.message}`);
+    }
   },
 
   async remove(id) {
-    const store = await tx('readwrite');
-    return new Promise((resolve, reject) => {
-      const r = store.delete(id);
-      r.onsuccess = () => resolve(true);
-      r.onerror = () => reject(r.error);
-    });
+    try {
+      const store = await tx('readwrite');
+      return new Promise((resolve, reject) => {
+        const r = store.delete(id);
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    } catch (e) {
+      throw new Error(`删除失败: ${e.message}`);
+    }
   },
 
   async setStarred(id, starred) {
-    const store = await tx('readwrite');
-    return new Promise((resolve, reject) => {
-      const g = store.get(id);
-      g.onsuccess = () => {
-        const item = g.result;
-        if (!item) return resolve(false);
-        item.starred = starred ? 1 : 0;
-        const p = store.put(item);
-        p.onsuccess = () => resolve(true);
-        p.onerror = () => reject(p.error);
-      };
-      g.onerror = () => reject(g.error);
-    });
+    try {
+      const store = await tx('readwrite');
+      return new Promise((resolve, reject) => {
+        const g = store.get(id);
+        g.onsuccess = () => {
+          const item = g.result;
+          if (!item) return resolve(false);
+          item.starred = starred ? 1 : 0;
+          const p = store.put(item);
+          p.onsuccess = () => resolve(true);
+          p.onerror = () => reject(p.error);
+        };
+        g.onerror = () => reject(g.error);
+      });
+    } catch (e) {
+      throw new Error(`收藏操作失败: ${e.message}`);
+    }
   },
 
   async setTags(id, tags) {
-    const store = await tx('readwrite');
-    return new Promise((resolve, reject) => {
-      const g = store.get(id);
-      g.onsuccess = () => {
-        const item = g.result;
-        if (!item) return resolve(false);
-        item.tags = Array.isArray(tags) ? tags : [];
-        const p = store.put(item);
-        p.onsuccess = () => resolve(true);
-        p.onerror = () => reject(p.error);
-      };
-      g.onerror = () => reject(g.error);
-    });
+    try {
+      const store = await tx('readwrite');
+      return new Promise((resolve, reject) => {
+        const g = store.get(id);
+        g.onsuccess = () => {
+          const item = g.result;
+          if (!item) return resolve(false);
+          item.tags = Array.isArray(tags) ? tags : [];
+          const p = store.put(item);
+          p.onsuccess = () => resolve(true);
+          p.onerror = () => reject(p.error);
+        };
+        g.onerror = () => reject(g.error);
+      });
+    } catch (e) {
+      throw new Error(`标签保存失败: ${e.message}`);
+    }
   },
 
   async clear() {
-    const store = await tx('readwrite');
-    return new Promise((resolve, reject) => {
-      const r = store.clear();
-      r.onsuccess = () => resolve(true);
-      r.onerror = () => reject(r.error);
-    });
+    try {
+      const store = await tx('readwrite');
+      return new Promise((resolve, reject) => {
+        const r = store.clear();
+        r.onsuccess = () => resolve(true);
+        r.onerror = () => reject(r.error);
+      });
+    } catch (e) {
+      throw new Error(`清空失败: ${e.message}`);
+    }
+  },
+
+  // 检测当前环境是否支持持久化存储
+  async isSupported() {
+    try {
+      checkIDB();
+      await openDB();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
   },
 
   // 用 blob 创建 ObjectURL，注意调用方使用完要 revoke
