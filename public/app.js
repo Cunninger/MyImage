@@ -46,6 +46,16 @@ function blobToBase64(blob) {
   });
 }
 
+function dataUrlToBlob(dataUrl) {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new Blob([u8arr], { type: mime });
+}
+
 // 生成完成提示音
 function playDoneSound() {
   try {
@@ -133,10 +143,10 @@ function genId() {
 }
 
 // =======================
-// API Client（本地直跑，浏览器/APP 直接调 pearapi.ai）
+// API Client（本地直跑，浏览器/APP 直接调 api.ai-wave.org）
 // =======================
 const KEY_STORE = 'pearapi_key';
-const PEARAPI_BASE = 'https://api.pearapi.ai';
+const PEARAPI_BASE = 'https://api.ai-wave.org';
 
 const Client = {
   get hasUserKey() { return !!localStorage.getItem(KEY_STORE); },
@@ -148,30 +158,60 @@ const Client = {
 
   // ============ 生成 / 编辑 ============
   async generateOrEdit({ type, model, prompt, aspectRatio, n, refFiles, refUrls, signal }) {
-    const refs = [];
-    for (const f of refFiles || []) {
-      if (f instanceof File && f.size > 0) {
-        refs.push(await fileToDataUrl(f));
+    let res;
+
+    if (type === 'edit') {
+      const fd = new FormData();
+      fd.append('model', model);
+      fd.append('prompt', prompt);
+      fd.append('response_format', 'b64_json');
+      if (aspectRatio) fd.append('aspect_ratio', aspectRatio);
+      if (n) fd.append('n', String(Math.min(4, Math.max(1, n))));
+
+      let imageFile = null;
+      for (const f of refFiles || []) {
+        if (f instanceof File && f.size > 0) {
+          imageFile = f;
+          break;
+        }
       }
+
+      if (!imageFile && refUrls?.length) {
+        const first = refUrls[0];
+        if (first.startsWith('data:')) {
+          const blob = dataUrlToBlob(first);
+          imageFile = new File([blob], 'reference.png', { type: blob.type || 'image/png' });
+        } else {
+          const r = await fetch(first);
+          const blob = await r.blob();
+          imageFile = new File([blob], 'reference.png', { type: blob.type || 'image/png' });
+        }
+      }
+
+      if (!imageFile) throw new Error('缺少参考图片');
+      fd.append('image', imageFile);
+
+      res = await fetch(`${PEARAPI_BASE}/v1/images/edits`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${this.getKey()}` },
+        body: fd,
+        signal,
+      });
+    } else {
+      const body = { model, prompt, response_format: 'b64_json' };
+      if (aspectRatio) body.aspect_ratio = aspectRatio;
+      if (n) body.n = Math.min(4, Math.max(1, n));
+
+      res = await fetch(`${PEARAPI_BASE}/v1/images/generations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getKey()}`,
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
     }
-    refs.push(...(refUrls || []));
-
-    const body = { model, prompt, response_format: 'b64_json' };
-    if (aspectRatio) body.aspect_ratio = aspectRatio;
-    if (n) body.n = Math.min(4, Math.max(1, n));
-    if (refs.length === 1) body.image = refs[0];
-    else if (refs.length > 1) body['images[]'] = refs;
-
-    const url = type === 'edit' ? `${PEARAPI_BASE}/v1/images/edits` : `${PEARAPI_BASE}/v1/images/generations`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getKey()}`,
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
 
     let data;
     try { data = await res.json(); } catch { data = {}; }
@@ -211,7 +251,6 @@ const Client = {
         items.push(record);
       } catch (e) {
         console.error('保存到本地失败:', e);
-        // 即使存失败，也保留一个只有远程URL的记录，避免用户完全看不到
         items.push({ ...record, blob: undefined, remoteUrl: item.url });
       }
     }
